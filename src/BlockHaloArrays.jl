@@ -4,6 +4,7 @@ using Base.Threads, Base.Iterators, LinearAlgebra
 using ThreadPools, ThreadPinning, NumaAllocators
 
 export BlockHaloArray
+export flatten, repartition!
 
 """
 """
@@ -13,6 +14,7 @@ struct BlockHaloArray{AA<:Array{T,N1} where {T,N1},N}
     global_blockranges::Array{NTuple{N,UnitRange{Int64}},N}
     nhalo::Int64
     loop_limits::Vector{Vector{Int64}}
+    globaldims::NTuple{N,Int64}
 end
 
 include("partitioning.jl")
@@ -22,17 +24,21 @@ include("halo_exchange.jl")
 
 # Arguments
  - `dims::NTuple{N,Int}`: Array dimensions
- - `nhalo::Int`: Number of halo entries (equal in all dimensions)
+ - `nhalo::Integer`: Number of halo entries (equal in all dimensions)
 
 # Keyword Arguments
- - `nblocks::Int`: Number of blocks to divide the array into; default is nthreads()
+ - `nblocks::Integer`: Number of blocks to divide the array into; default is nthreads()
  - `T`:: Array number type; default is Float64 
 """
-function BlockHaloArray(dims::NTuple{N,Int}, nhalo::Int; nblocks=nthreads(), T=Float64) where {N}
+function BlockHaloArray(dims::NTuple{N,Int}, nhalo::Integer, nblocks=nthreads(); T=Float64) where {N}
+
+    if nblocks > nthreads()
+        @error "Unable to partition; nblocks > nthreads"
+    end
 
     blocks = Vector{Array{Float64,N}}(undef, nblocks)
 
-    tile_dims = num_tiles(nblocks, N) |> Tuple
+    tile_dims = block_layout(nblocks, N) |> Tuple
 
     block_sizes = split_count.(dims, collect(tile_dims))
     block_ranges = get_block_ranges(dims, nblocks)
@@ -46,7 +52,7 @@ function BlockHaloArray(dims::NTuple{N,Int}, nhalo::Int; nblocks=nthreads(), T=F
     threadid_to_numa_mapping = map_threadid_to_numa()
 
     for threadid in LI
-        block_dim = size.(block_ranges[threadid]) |> flatten |> collect |> Tuple
+        block_dim = size.(block_ranges[threadid]) |> Iterators.flatten |> collect |> Tuple
         numa_id = threadid_to_numa_mapping[threadid]
         # blocks[threadid] = zeros(block_dim .+ 2nhalo)
         # blocks[threadid] = Array{T}(undef, block_dim .+ 2nhalo)
@@ -68,22 +74,37 @@ function BlockHaloArray(dims::NTuple{N,Int}, nhalo::Int; nblocks=nthreads(), T=F
     # 	@show neigh
     # end
 
-    A = BlockHaloArray(blocks, tile_dims, block_ranges, nhalo, loop_limits)#, neighbors, LI)
-    _first_touch(A) # for NUMA first-touch policy
+    A = BlockHaloArray(blocks, tile_dims, block_ranges, nhalo, loop_limits, dims)#, neighbors, LI)
+
+    # testing NUMA first-touch policy
+    @sync for tid in 1:nblocks
+        ThreadPools.@tspawnat tid fill!(A.blocks[tid], 0)
+    end
+
     A
 end
 
-function _first_touch(A)
-    @sync for tid in 1:nthreads()
-        t = ThreadPools.@tspawnat tid init_blocks(A, tid)
+function BlockHaloArray(A::AbstractArray{T,N}, nhalo::Integer, nblocks=nthreads()) where {T,N}
+
+    dims = size(A)
+    A_blocked = BlockHaloArray(dims, nhalo, nblocks, T=T)
+
+    block_ranges = get_block_ranges(dims, nblocks)
+
+    for tid in LinearIndices(block_ranges)
+        domain_indices = UnitRange.((axes(A.blocks[tid]) .|> first) .+ nhalo,
+            (axes(A.blocks[tid]) .|> last) .- nhalo)
+
+        domain_view = view(A_blocked.blocks[tid], domain_indices...)
+
+        A_view = view(A, block_ranges[tid]...)
+        copy!(domain_view, A_view)
     end
+
+    return A_blocked
 end
 
-function init_blocks(A, tid)
-    fill!(A.blocks[tid], 0)
-end
-
-
+"""Create a dictionary mapping the threadid to the NUMA node."""
 function map_threadid_to_numa()
     buf = []
     for (id, node) in enumerate(cpuids_per_numa())
@@ -93,5 +114,17 @@ function map_threadid_to_numa()
     end
     Dict(buf)
 end
+
+import Base.eltype, Base.size, Base.axes
+
+eltype(A::BlockHaloArray) = eltype(first(A.blocks))
+
+size(A::BlockHaloArray) = size.(A.blocks)
+size(A::BlockHaloArray, dim) = size.(A.blocks, dim)
+
+axes(A::BlockHaloArray) = axes.(A.blocks)
+axes(A::BlockHaloArray, dim) = axes.(A.blocks, dim)
+
+nblocks(A::BlockHaloArray) = length(A.blocks)
 
 end
