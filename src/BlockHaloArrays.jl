@@ -1,10 +1,15 @@
 module BlockHaloArrays
 
+import Base.eltype, Base.size, Base.axes
+
 using Base.Threads, Base.Iterators, LinearAlgebra
 using ThreadPools, ThreadPinning, NumaAllocators
+using EllipsisNotation
 
 export BlockHaloArray
-export flatten, repartition!
+export flatten, repartition!, update_halo!
+export domainview
+
 
 
 abstract type AbstractBlockHaloArray end
@@ -30,7 +35,7 @@ struct BlockHaloArray{T, N, AA<:Array{T,N}} <: AbstractBlockHaloArray
     nhalo::Int
     loop_limits::Vector{Vector{Int}}
     globaldims::NTuple{N,Int}
-    neighbor_blocks::Vector{Dict{Int,Int}}
+    neighbor_blocks::Vector{Dict{Symbol,Int}}
 end
 
 """
@@ -56,7 +61,7 @@ struct MPIBlockHaloArray{T, N, AA<:Array{T,N}} <: AbstractBlockHaloArray
     nhalo::Int
     loop_limits::Vector{Vector{Int}}
     globaldims::NTuple{N,Int}
-    neighbor_blocks::Vector{Dict{Int,Int}}
+    neighbor_blocks::Vector{Dict{Symbol,Int}}
     _global_halo_send_buf::Vector{Array{T,N}}
     _global_halo_recv_buf::Vector{Array{T,N}}
 end
@@ -74,7 +79,7 @@ include("halo_exchange.jl")
  - `nblocks::Integer`: Number of blocks to divide the array into; default is nthreads()
  - `T`:: Array number type; default is Float64 
 """
-function BlockHaloArray(dims::NTuple{N,Int}, nhalo::Integer, nblocks=nthreads(); T=Float64) where {N}
+function BlockHaloArray(dims::NTuple{N,Int}, nhalo::Integer, nblocks=nthreads(); T=Float64, use_numa=true) where {N}
 
     if nblocks > nthreads()
         @error "Unable to partition; nblocks > nthreads"
@@ -101,7 +106,11 @@ function BlockHaloArray(dims::NTuple{N,Int}, nhalo::Integer, nblocks=nthreads();
         # blocks[threadid] = Array{T}(undef, block_dim .+ 2nhalo)
 
         # allocate on the thread's numa node
-        blocks[threadid] = Array{T}(numa(numa_id), block_dim .+ 2nhalo)
+        if use_numa
+            blocks[threadid] = Array{T}(numa(numa_id), block_dim .+ 2nhalo)
+        else
+            blocks[threadid] = Array{T}(undef, block_dim .+ 2nhalo)
+        end
     end
 
     loop_limits = Vector{Vector{Int}}(undef, nblocks)
@@ -113,9 +122,11 @@ function BlockHaloArray(dims::NTuple{N,Int}, nhalo::Integer, nblocks=nthreads();
     neighbors = get_2d_neighbor_blocks(tile_dims)
     A = BlockHaloArray(blocks, tile_dims, block_ranges, nhalo, loop_limits, dims, neighbors)
 
-    # testing NUMA first-touch policy
-    @sync for tid in 1:nblocks
-        ThreadPools.@tspawnat tid fill!(A.blocks[tid], 0)
+    # # testing NUMA first-touch policy
+    if use_numa
+        @sync for tid in 1:nblocks
+            ThreadPools.@tspawnat tid fill!(A.blocks[tid], 0)
+        end
     end
 
     A
@@ -129,8 +140,8 @@ function BlockHaloArray(A::AbstractArray{T,N}, nhalo::Integer, nblocks=nthreads(
     block_ranges = get_block_ranges(dims, nblocks)
 
     for tid in LinearIndices(block_ranges)
-        domain_indices = UnitRange.((axes(A.blocks[tid]) .|> first) .+ nhalo,
-            (axes(A.blocks[tid]) .|> last) .- nhalo)
+        domain_indices = UnitRange.((axes(A_blocked.blocks[tid]) .|> first) .+ nhalo,
+            (axes(A_blocked.blocks[tid]) .|> last) .- nhalo)
 
         domain_view = view(A_blocked.blocks[tid], domain_indices...)
 
@@ -152,7 +163,6 @@ function map_threadid_to_numa()
     Dict(buf)
 end
 
-import Base.eltype, Base.size, Base.axes
 
 eltype(A::AbstractBlockHaloArray) = eltype(first(A.blocks))
 
@@ -163,5 +173,19 @@ axes(A::AbstractBlockHaloArray) = axes.(A.blocks)
 axes(A::AbstractBlockHaloArray, dim) = axes.(A.blocks, dim)
 
 nblocks(A::AbstractBlockHaloArray) = length(A.blocks)
+
+"""
+    domainview(A::BlockHaloArray, blockid) -> SubArray
+
+Get the SubArray view of the domain region of a block in the BlockHaloArray.
+"""
+function domainview(A::BlockHaloArray, blockid::Integer)
+    _, _, lo_dom_start, _ = lo_indices(A.blocks[blockid], A.nhalo)
+    _, hi_dom_end, _, _ = hi_indices(A.blocks[blockid], A.nhalo)
+
+    idx_range = UnitRange.(lo_dom_start, hi_dom_end)
+
+    return @views A.blocks[blockid][.., idx_range...]
+end
 
 end

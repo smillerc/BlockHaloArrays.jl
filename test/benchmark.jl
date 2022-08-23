@@ -19,7 +19,7 @@ function blocked_version(A)
     end
 end
 
-function tturbo_version(data, nhalo)
+function tturbo_version(data::AbstractArray{T,N}, nhalo) where {T, N}
     ilo = first(axes(data, 1)) + nhalo
     ihi = last(axes(data, 1)) - nhalo
     jlo = first(axes(data, 2)) + nhalo
@@ -35,32 +35,51 @@ function tturbo_version(data, nhalo)
     end
 end
 
-pinthreads(:compact)
 
-ni = 5000
-nj = 5000
-nhalo = 4
-A_block = BlockHaloArray((ni, nj), nhalo);
-A_flat = rand(ni + 2nhalo, nj + 2nhalo);
+function run_bench(T, pin_threads, use_numa)
 
-tturbo_version(A_flat, nhalo)
-blocked_version(A_block)
-
-t_elaps = 0
-max_iter = 1000
-for iter in 1:max_iter
-    global t_elaps += @elapsed tturbo_version(A_flat, nhalo)
+    println("Running benchmark")
+    println("-----------------")
+    nthreads = Threads.nthreads()
+    
+    if pin_threads 
+        pinthreads(:compact)
+    end
+    
+    ni = 5000
+    nj = 5000
+    nhalo = 4
+    A_block = BlockHaloArray((ni, nj), nhalo, nthreads; use_numa=use_numa, T=T);
+    A_flat = rand(T, ni + 2nhalo, nj + 2nhalo);
+    
+    tturbo_version(A_flat, nhalo)
+    blocked_version(A_block)
+    
+    global t_elaps = 0.
+    max_iter = 1000
+    for iter in 1:max_iter
+        global t_elaps += @elapsed tturbo_version(A_flat, nhalo)
+    end
+    t_tturbo = t_elaps / max_iter
+    
+    global t_elaps = 0.
+    for iter in 1:max_iter
+        global t_elaps += @elapsed blocked_version(A_block)
+    end
+    t_blocked = t_elaps / max_iter
+    
+    @show use_numa
+    @show pin_threads
+    @show nthreads
+    @show t_blocked t_tturbo
+    @show t_tturbo / t_blocked
+    println("-----------------")
+    println()
 end
-t_tturbo = t_elaps / max_iter
 
-t_elaps = 0
-for iter in 1:max_iter
-    global t_elaps += @elapsed blocked_version(A_block)
-end
-t_blocked = t_elaps / max_iter
 
-@show t_blocked t_tturbo
-@show t_tturbo/ t_blocked
+run_bench(Float64, true, true)
+run_bench(Float64, false, false)
 
 nothing
 
