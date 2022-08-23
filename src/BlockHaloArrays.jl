@@ -6,15 +6,59 @@ using ThreadPools, ThreadPinning, NumaAllocators
 export BlockHaloArray
 export flatten, repartition!
 
+
+abstract type AbstractBlockHaloArray end
+
 """
+A blocked array structure that stores thread-specific data in blocks. This facilitates a micro domain-decompisition
+for shared-memory applications. Each thread operates on it's own block of data. This provides better performance
+scaling than multi-threaded loops
+
+# Fields
+ - `blocks::Vector{AA}`: 
+ - `blockdims::NTuple{N,Int64}`: dimensions of each block
+ - `global_blockranges::Array{NTuple{N,UnitRange{Int64}},N}`: Indexing/ranges of each block from the global perspective
+ - `nhalo::Int64`: Number of halo regions, e.g. 2 entries along each dimension
+ - `loop_limits::Vector{Vector{Int64}}`: Looping limits for convienence e.g. `[ilo,ihi,jlo,jhi]`
+ - `globaldims::NTuple{N,Int64}`: Dimensions of the array if it were a simple `Array{T,N}`, e.g. `(20,20)`
+
 """
-struct BlockHaloArray{AA<:Array{T,N1} where {T,N1},N}
+struct BlockHaloArray{T, N, AA<:Array{T,N}} <: AbstractBlockHaloArray
     blocks::Vector{AA}
-    blockdims::NTuple{N,Int64}
-    global_blockranges::Array{NTuple{N,UnitRange{Int64}},N}
-    nhalo::Int64
-    loop_limits::Vector{Vector{Int64}}
-    globaldims::NTuple{N,Int64}
+    blockdims::NTuple{N,Int}
+    global_blockranges::Array{NTuple{N,UnitRange{Int}},N}
+    nhalo::Int
+    loop_limits::Vector{Vector{Int}}
+    globaldims::NTuple{N,Int}
+    neighbor_blocks::Vector{Dict{Int,Int}}
+end
+
+"""
+An MPI-aware BlockHaloArray. The only difference between this and the
+plain `BlockHaloArray` is the addition of send/receive buffers that help
+MPI communication.
+
+# Fields
+ - `blocks::Vector{AA}`: 
+ - `blockdims::NTuple{N,Int64}`: dimensions of each block
+ - `global_blockranges::Array{NTuple{N,UnitRange{Int64}},N}`: Indexing/ranges of each block from the global perspective
+ - `nhalo::Int64`: Number of halo regions, e.g. 2 entries along each dimension
+ - `loop_limits::Vector{Vector{Int64}}`: Looping limits for convienence e.g. `[ilo,ihi,jlo,jhi]`
+ - `globaldims::NTuple{N,Int64}`: Dimensions of the array if it were a simple `Array{T,N}`, e.g. `(20,20)`
+ - `_global_halo_send_buf::Vector{Array{T,N}}`: Buffers used to send across MPI ranks
+ - `_global_halo_recv_buf::Vector{Array{T,N}}`: Buffers used to receive across MPI ranks
+
+"""
+struct MPIBlockHaloArray{T, N, AA<:Array{T,N}} <: AbstractBlockHaloArray
+    blocks::Vector{AA}
+    blockdims::NTuple{N,Int}
+    global_blockranges::Array{NTuple{N,UnitRange{Int}},N}
+    nhalo::Int
+    loop_limits::Vector{Vector{Int}}
+    globaldims::NTuple{N,Int}
+    neighbor_blocks::Vector{Dict{Int,Int}}
+    _global_halo_send_buf::Vector{Array{T,N}}
+    _global_halo_recv_buf::Vector{Array{T,N}}
 end
 
 include("partitioning.jl")
@@ -40,11 +84,10 @@ function BlockHaloArray(dims::NTuple{N,Int}, nhalo::Integer, nblocks=nthreads();
 
     tile_dims = block_layout(nblocks, N) |> Tuple
 
-    block_sizes = split_count.(dims, collect(tile_dims))
+    # block_sizes = split_count.(dims, collect(tile_dims))
     block_ranges = get_block_ranges(dims, nblocks)
 
-    nneighbors = 3^N - 1
-    neighbors = Vector{Vector{Int64}}(undef, nblocks)
+    # nneighbors = 3^N - 1
 
     CI = CartesianIndices(tile_dims)
     LI = LinearIndices(tile_dims)
@@ -61,20 +104,14 @@ function BlockHaloArray(dims::NTuple{N,Int}, nhalo::Integer, nblocks=nthreads();
         blocks[threadid] = Array{T}(numa(numa_id), block_dim .+ 2nhalo)
     end
 
-
     loop_limits = Vector{Vector{Int64}}(undef, nblocks)
     for I in LI
         loop_limits[I] = [(first(ax) + nhalo, last(ax) - nhalo)
                           for ax in axes(blocks[I])] |> flatten |> collect
     end
-    # for I in CI
-    # 	ijk = Tuple(I)
-    # 	@show ijk
-    # 	neigh = [(l-1, l+1) for l in ijk] |> Tuple
-    # 	@show neigh
-    # end
 
-    A = BlockHaloArray(blocks, tile_dims, block_ranges, nhalo, loop_limits, dims)#, neighbors, LI)
+    neighbors = get_2d_neighbor_blocks(tile_dims)
+    A = BlockHaloArray(blocks, tile_dims, block_ranges, nhalo, loop_limits, dims, neighbors)
 
     # testing NUMA first-touch policy
     @sync for tid in 1:nblocks
@@ -117,14 +154,14 @@ end
 
 import Base.eltype, Base.size, Base.axes
 
-eltype(A::BlockHaloArray) = eltype(first(A.blocks))
+eltype(A::AbstractBlockHaloArray) = eltype(first(A.blocks))
 
-size(A::BlockHaloArray) = size.(A.blocks)
-size(A::BlockHaloArray, dim) = size.(A.blocks, dim)
+size(A::AbstractBlockHaloArray) = size.(A.blocks)
+size(A::AbstractBlockHaloArray, dim) = size.(A.blocks, dim)
 
-axes(A::BlockHaloArray) = axes.(A.blocks)
-axes(A::BlockHaloArray, dim) = axes.(A.blocks, dim)
+axes(A::AbstractBlockHaloArray) = axes.(A.blocks)
+axes(A::AbstractBlockHaloArray, dim) = axes.(A.blocks, dim)
 
-nblocks(A::BlockHaloArray) = length(A.blocks)
+nblocks(A::AbstractBlockHaloArray) = length(A.blocks)
 
 end
