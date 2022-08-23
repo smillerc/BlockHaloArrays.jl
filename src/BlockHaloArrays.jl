@@ -16,11 +16,11 @@ scaling than multi-threaded loops
 
 # Fields
  - `blocks::Vector{AA}`: 
- - `blockdims::NTuple{N,Int64}`: dimensions of each block
- - `global_blockranges::Array{NTuple{N,UnitRange{Int64}},N}`: Indexing/ranges of each block from the global perspective
- - `nhalo::Int64`: Number of halo regions, e.g. 2 entries along each dimension
- - `loop_limits::Vector{Vector{Int64}}`: Looping limits for convienence e.g. `[ilo,ihi,jlo,jhi]`
- - `globaldims::NTuple{N,Int64}`: Dimensions of the array if it were a simple `Array{T,N}`, e.g. `(20,20)`
+ - `blockdims::NTuple{N,Int}`: dimensions of each block
+ - `global_blockranges::Array{NTuple{N,UnitRange{Int}},N}`: Indexing/ranges of each block from the global perspective
+ - `nhalo::Int`: Number of halo regions, e.g. 2 entries along each dimension
+ - `loop_limits::Vector{Vector{Int}}`: Looping limits for convienence e.g. `[ilo,ihi,jlo,jhi]`
+ - `globaldims::NTuple{N,Int}`: Dimensions of the array if it were a simple `Array{T,N}`, e.g. `(20,20)`
 
 """
 struct BlockHaloArray{T, N, AA<:Array{T,N}} <: AbstractBlockHaloArray
@@ -40,11 +40,11 @@ MPI communication.
 
 # Fields
  - `blocks::Vector{AA}`: 
- - `blockdims::NTuple{N,Int64}`: dimensions of each block
- - `global_blockranges::Array{NTuple{N,UnitRange{Int64}},N}`: Indexing/ranges of each block from the global perspective
- - `nhalo::Int64`: Number of halo regions, e.g. 2 entries along each dimension
- - `loop_limits::Vector{Vector{Int64}}`: Looping limits for convienence e.g. `[ilo,ihi,jlo,jhi]`
- - `globaldims::NTuple{N,Int64}`: Dimensions of the array if it were a simple `Array{T,N}`, e.g. `(20,20)`
+ - `blockdims::NTuple{N,Int}`: dimensions of each block
+ - `global_blockranges::Array{NTuple{N,UnitRange{Int}},N}`: Indexing/ranges of each block from the global perspective
+ - `nhalo::Int`: Number of halo regions, e.g. 2 entries along each dimension
+ - `loop_limits::Vector{Vector{Int}}`: Looping limits for convienence e.g. `[ilo,ihi,jlo,jhi]`
+ - `globaldims::NTuple{N,Int}`: Dimensions of the array if it were a simple `Array{T,N}`, e.g. `(20,20)`
  - `_global_halo_send_buf::Vector{Array{T,N}}`: Buffers used to send across MPI ranks
  - `_global_halo_recv_buf::Vector{Array{T,N}}`: Buffers used to receive across MPI ranks
 
@@ -104,7 +104,7 @@ function BlockHaloArray(dims::NTuple{N,Int}, nhalo::Integer, nblocks=nthreads();
         blocks[threadid] = Array{T}(numa(numa_id), block_dim .+ 2nhalo)
     end
 
-    loop_limits = Vector{Vector{Int64}}(undef, nblocks)
+    loop_limits = Vector{Vector{Int}}(undef, nblocks)
     for I in LI
         loop_limits[I] = [(first(ax) + nhalo, last(ax) - nhalo)
                           for ax in axes(blocks[I])] |> flatten |> collect

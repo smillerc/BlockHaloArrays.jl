@@ -110,7 +110,7 @@ end
 
 
 """
-    get_block_ranges(dims::NTuple{N, Int}, nblocks::Integer) -> Array{NTuple{ndims,UnitRange{Int64}}}
+    get_block_ranges(dims::NTuple{N, Int}, nblocks::Integer) -> Array{NTuple{ndims,UnitRange{Int}}}
 
 Get the ranges of each block (in the global space)
 
@@ -129,7 +129,7 @@ function get_block_ranges(dims::NTuple{N,Int}, nblocks::Integer) where {N}
         start_idx[i] = end_idx[i] - block_sizes[i] .+ 1
     end
 
-    blks = Array{NTuple{ndims,UnitRange{Int64}}}(undef, tile_dims)
+    blks = Array{NTuple{ndims,UnitRange{Int}}}(undef, tile_dims)
 
     for block_I in CartesianIndices(tile_dims)
         blks[block_I] = [start_idx[dim][x]:end_idx[dim][x]
