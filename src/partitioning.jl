@@ -141,11 +141,11 @@ end
 
 
 """
-    repartition(A::BlockHaloArray, nblocks) -> BlockHaloArray
+    repartition(A::AbstractBlockHaloArray, nblocks) -> BlockHaloArray
 
 Repartition the BlockHaloArray into a different block layout
 """
-function repartition!(A::BlockHaloArray, nblocks::Integer)
+function repartition!(A::AbstractBlockHaloArray, nblocks::Integer)
 
     if nblocks == 1
         @warn "Trying to repartition!() into 1 block is prohibited"
@@ -160,12 +160,12 @@ function repartition!(A::BlockHaloArray, nblocks::Integer)
 end
 
 """
-    flatten(A::BlockHaloArray) -> Array
+    flatten(A::AbstractBlockHaloArray) -> Array
 
 Return a flattened version of a BlockHaloArray. This is a copy, since a view
 of the current block structure isn't possible.
 """
-function flatten(A::BlockHaloArray)
+function flatten(A::AbstractBlockHaloArray)
 
     A_flat = zeros(eltype(A), A.globaldims)
     block_ranges = A.global_blockranges
@@ -183,7 +183,7 @@ function flatten(A::BlockHaloArray)
 end
 
 
-function globalsize(A::BlockHaloArray, nohalo=true)
+function globalsize(A::AbstractBlockHaloArray, nohalo=true)
     ndims = length(size(first(A.blocks)))
     global_dims = zeros(Int, ndims)
 
