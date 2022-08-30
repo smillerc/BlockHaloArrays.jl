@@ -104,8 +104,10 @@ function BlockHaloArray(dims::NTuple{N,Int}, halodims::NTuple{N2,Int}, nhalo::In
         error("Some (or all) of the given halo_dims $(halodims) are incompatible with the dimensionality of the given array A")
     end
 
+    mismatched_blocks = false
     if nblocks > Threads.nthreads()
         @warn "nblocks ($nblocks) > nthreads ($(nthreads()))"
+        mismatched_blocks = true
     end
 
     blocks = Vector{Array{Float64,N}}(undef, nblocks)
@@ -159,9 +161,15 @@ function BlockHaloArray(dims::NTuple{N,Int}, halodims::NTuple{N2,Int}, nhalo::In
     A = BlockHaloArray(blocks, tile_dims, halodims, block_ranges, nhalo, loop_limits, dims, neighbors)
 
     # # testing NUMA first-touch policy
-    if use_numa
-        @sync for tid in 1:nblocks
-            ThreadPools.@tspawnat tid fill!(A.blocks[tid], 0)
+    if !mismatched_blocks
+        if use_numa
+            @sync for tid in 1:nblocks
+                ThreadPools.@tspawnat tid fill!(A.blocks[tid], 0)
+            end
+        end
+    else
+        for tid in 1:nblocks
+            fill!(A.blocks[tid], 0)
         end
     end
 
