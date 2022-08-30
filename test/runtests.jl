@@ -31,23 +31,24 @@ using EllipsisNotation
     #    *---* *---* *---*
     #            i
 
-    @test A1.neighbor_blocks[1][:ilo] == -1
+    # negative IDs mean it crosses over the domain boundaries, e.g. periodic
+    @test A1.neighbor_blocks[1][:ilo] == -3
     @test A1.neighbor_blocks[1][:ihi] == 2
-    @test A1.neighbor_blocks[1][:jlo] == -1
+    @test A1.neighbor_blocks[1][:jlo] == -4
     @test A1.neighbor_blocks[1][:jhi] == 4
-    @test A1.neighbor_blocks[1][:ilojhi] == -1
+    @test A1.neighbor_blocks[1][:ilojhi] == -6
     @test A1.neighbor_blocks[1][:ihijhi] == 5
-    @test A1.neighbor_blocks[1][:ilojlo] == -1
-    @test A1.neighbor_blocks[1][:ihijlo] == -1
+    @test A1.neighbor_blocks[1][:ilojlo] == -6
+    @test A1.neighbor_blocks[1][:ihijlo] == -5
     
     @test A1.neighbor_blocks[2][:ilo] == 1
     @test A1.neighbor_blocks[2][:ihi] == 3
-    @test A1.neighbor_blocks[2][:jlo] == -1
+    @test A1.neighbor_blocks[2][:jlo] == -5
     @test A1.neighbor_blocks[2][:jhi] == 5
     @test A1.neighbor_blocks[2][:ilojhi] == 4
     @test A1.neighbor_blocks[2][:ihijhi] == 6
-    @test A1.neighbor_blocks[2][:ilojlo] == -1
-    @test A1.neighbor_blocks[2][:ihijlo] == -1
+    @test A1.neighbor_blocks[2][:ilojlo] == -4
+    @test A1.neighbor_blocks[2][:ihijlo] == -6
 
     function init(A)
         dom = domainview(A, threadid())
@@ -58,7 +59,8 @@ using EllipsisNotation
         ThreadPools.@tspawnat tid init(A1)
     end
     
-    sync_halo!(A1)
+    include_periodic_bc = false
+    sync_halo!(A1, include_periodic_bc)
 
     blockid = 2
     hi_domn_start, hi_domn_end, hi_halo_start, hi_halo_end = BlockHaloArrays.hi_indices(A1.blocks[blockid], A1.nhalo)
@@ -108,23 +110,24 @@ end
     #    *---* *---* *---*
     #            i
 
-    @test A1.neighbor_blocks[1][:ilo] == -1
+    # negative IDs mean it crosses over the domain boundaries, e.g. periodic
+    @test A1.neighbor_blocks[1][:ilo] == -3
     @test A1.neighbor_blocks[1][:ihi] == 2
-    @test A1.neighbor_blocks[1][:jlo] == -1
+    @test A1.neighbor_blocks[1][:jlo] == -4
     @test A1.neighbor_blocks[1][:jhi] == 4
-    @test A1.neighbor_blocks[1][:ilojhi] == -1
+    @test A1.neighbor_blocks[1][:ilojhi] == -6
     @test A1.neighbor_blocks[1][:ihijhi] == 5
-    @test A1.neighbor_blocks[1][:ilojlo] == -1
-    @test A1.neighbor_blocks[1][:ihijlo] == -1
+    @test A1.neighbor_blocks[1][:ilojlo] == -6
+    @test A1.neighbor_blocks[1][:ihijlo] == -5
     
     @test A1.neighbor_blocks[2][:ilo] == 1
     @test A1.neighbor_blocks[2][:ihi] == 3
-    @test A1.neighbor_blocks[2][:jlo] == -1
+    @test A1.neighbor_blocks[2][:jlo] == -5
     @test A1.neighbor_blocks[2][:jhi] == 5
     @test A1.neighbor_blocks[2][:ilojhi] == 4
     @test A1.neighbor_blocks[2][:ihijhi] == 6
-    @test A1.neighbor_blocks[2][:ilojlo] == -1
-    @test A1.neighbor_blocks[2][:ihijlo] == -1
+    @test A1.neighbor_blocks[2][:ilojlo] == -4
+    @test A1.neighbor_blocks[2][:ihijlo] == -6
 
     function init(A)
         dom = domainview(A, threadid())

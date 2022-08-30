@@ -191,9 +191,9 @@ function halo_exhange_map_3d()
     )
 end
 
-function sync_halo!(A::BlockHaloArray)
+function sync_halo!(A::BlockHaloArray, include_periodic_bc=false)
     @sync for tid in 1:length(A.blocks)
-        ThreadPools.@tspawnat tid _neighbor_exhange(A, tid)
+        ThreadPools.@tspawnat tid _neighbor_exhange(A, tid, include_periodic_bc)
     end
 end
 
@@ -206,7 +206,7 @@ end
 end
 
 """Copy data from the neighbor block into the current block's halo region"""
-function _neighbor_exhange(A::BlockHaloArray, block_id::Integer)
+function _neighbor_exhange(A::BlockHaloArray, block_id::Integer, include_periodic_bc=false)
     current_block = @views A.blocks[block_id]
 
     # domain_ranges = domain_donor_ranges_2d(current_block, A.nhalo)
@@ -215,7 +215,15 @@ function _neighbor_exhange(A::BlockHaloArray, block_id::Integer)
     exchange_map, domain_ranges, halo_ranges = get_neighbor_mapping(A, block_id)
 
     for (dom_id, halo_id) in exchange_map
-        neighbor_id = A.neighbor_blocks[block_id][halo_id]
+
+        # The convention is that periodic neighbors block ids are < 1 as a hint to the 
+        # user and code. 
+        if include_periodic_bc
+            neighbor_id = abs(A.neighbor_blocks[block_id][halo_id])
+        else
+            neighbor_id = A.neighbor_blocks[block_id][halo_id]
+        end
+
         if valid_neighbor(neighbor_id)
             donor = @views A.blocks[neighbor_id][.., domain_ranges[dom_id]...]
             halo = @views current_block[.., halo_ranges[halo_id]...]
