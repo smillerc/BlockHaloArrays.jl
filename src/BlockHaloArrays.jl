@@ -123,10 +123,8 @@ function BlockHaloArray(dims::NTuple{N,Int}, halodims::NTuple{N2,Int}, nhalo::In
         block_ranges = update_block_ranges_with_non_halo_dims(block_ranges_halo_only, dims, halodims)
     end
 
-    threadid_to_numa_mapping = map_threadid_to_numa()
-
     block_sizes = [collect(flatten(size.(block))) for block in block_ranges]
-
+    
     # pad the dimensions that will include halo regions
     for block in block_sizes
         for i in eachindex(block)
@@ -136,16 +134,20 @@ function BlockHaloArray(dims::NTuple{N,Int}, halodims::NTuple{N2,Int}, nhalo::In
         end
     end
 
-    for threadid in eachindex(blocks)
-        # block_size = size.(block_ranges[threadid]) |> Iterators.flatten |> collect |> Tuple
-        numa_id = threadid_to_numa_mapping[threadid]
-
+    for threadid in eachindex(blocks)       
         # allocate on the thread's numa node
         if use_numa
-            # blocks[threadid] = Array{T}(numa(numa_id), block_dim .+ 2nhalo)
-            blocks[threadid] = Array{T}(numa(numa_id), block_sizes[threadid]...)
+            try
+                threadid_to_numa_mapping = map_threadid_to_numa()
+                numa_id = threadid_to_numa_mapping[threadid]
+                blocks[threadid] = Array{T}(numa(numa_id), block_sizes[threadid]...)
+            catch
+                if threadid == firstindex(blocks) 
+                    @warn "Unable to allocate blocks on the thread-local NUMA node"
+                end
+                blocks[threadid] = Array{T}(undef, block_sizes[threadid]...)
+            end
         else
-            # blocks[threadid] = Array{T}(undef, block_dim .+ 2nhalo)
             blocks[threadid] = Array{T}(undef, block_sizes[threadid]...)
         end
     end
