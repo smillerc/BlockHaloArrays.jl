@@ -9,6 +9,7 @@ using EllipsisNotation
 export BlockHaloArray
 export flatten, repartition!, sync_halo!
 export domainview
+export onboundary
 
 
 
@@ -72,6 +73,7 @@ include("partitioning.jl")
 include("halo_exchange.jl")
 
 """
+Construct a BlockHaloArray
 
 # Arguments
  - `dims::NTuple{N,Int}`: Array dimensions
@@ -85,7 +87,7 @@ function BlockHaloArray(dims::NTuple{N,Int}, halodims::NTuple{N2,Int}, nhalo::In
 
     alldims = Tuple(1:length(dims))
     non_halo_dims = Tuple([i for (i, v) in enumerate(dims) if !(i in halodims)])
-    
+
     for dim in halodims
         if !(dim in alldims)
             error("Invalid halo dimension: $(dim) not in any of the array axes $alldims")
@@ -102,9 +104,9 @@ function BlockHaloArray(dims::NTuple{N,Int}, halodims::NTuple{N2,Int}, nhalo::In
         error("Some (or all) of the given halo_dims $(halodims) are incompatible with the dimensionality of the given array A")
     end
 
-    # if nblocks > Threads.nthreads()
-    @warn "nblocks ($nblocks) > nthreads ($(nthreads()))"
-    # end
+    if nblocks > Threads.nthreads()
+        @warn "nblocks ($nblocks) > nthreads ($(nthreads()))"
+    end
 
     blocks = Vector{Array{Float64,N}}(undef, nblocks)
     halo_only_sizes = Tuple([v for (i, v) in enumerate(dims) if i in halodims])
@@ -142,7 +144,7 @@ function BlockHaloArray(dims::NTuple{N,Int}, halodims::NTuple{N2,Int}, nhalo::In
             blocks[threadid] = Array{T}(numa(numa_id), block_sizes[threadid]...)
         else
             # blocks[threadid] = Array{T}(undef, block_dim .+ 2nhalo)
-            blocks[threadid] = Array{T}(undef,  block_sizes[threadid]...)
+            blocks[threadid] = Array{T}(undef, block_sizes[threadid]...)
         end
     end
 
@@ -175,7 +177,7 @@ end
 
 Construct a BlockHaloArray from a normal Array
 """
-function BlockHaloArray(A::AbstractArray{T,N}, halodims::NTuple{N2, Integer}, nhalo::Integer, nblocks=nthreads()) where {T,N,N2}
+function BlockHaloArray(A::AbstractArray{T,N}, halodims::NTuple{N2,Integer}, nhalo::Integer, nblocks=nthreads()) where {T,N,N2}
     dims = size(A)
     A_blocked = BlockHaloArray(dims, halodims, nhalo, nblocks, T=T)
     block_ranges = A_blocked.global_blockranges
@@ -216,6 +218,26 @@ axes(A::AbstractBlockHaloArray) = axes.(A.blocks)
 axes(A::AbstractBlockHaloArray, dim) = axes.(A.blocks, dim)
 
 nblocks(A::AbstractBlockHaloArray) = length(A.blocks)
+
+"""
+Determine if the block is on the boundary
+
+# Arguments
+ - `A::AbstractBlockHaloArray`: The array in question
+ - `blockid::Integer`: The id of the block. This is normally associated with the thread id
+ - `boundary::Symbol`: Which boundary are we checking for? Examples include :ilo, :jhi, etc... 
+"""
+function onboundary(A::AbstractBlockHaloArray, blockid::Integer, boundary::Symbol)
+    try
+        if A.neighbor_blocks[blockid][boundary] == -1
+            return true
+        else
+            return false
+        end
+    catch
+        return false
+    end
+end
 
 """
     domainview(A::BlockHaloArray, blockid) -> SubArray
