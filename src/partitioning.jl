@@ -12,7 +12,8 @@ and the dimensionality `N` of the domain
  - `N::Integer`
 """
 function block_layout(nblocks::Integer, N::Integer)
-    @assert(1 <= N <= 3)
+    @assert (1 <= N <= 3) "Invalid dimensionality of the domain: $N"
+
     if N == 1
         return [nblocks]
     elseif N == 2
@@ -110,7 +111,7 @@ end
 
 
 """
-    get_block_ranges(dims::NTuple{N, Int}, nblocks::Integer) -> Array{NTuple{ndims,UnitRange{Int64}}}
+    get_block_ranges(dims::NTuple{N, Int}, nblocks::Integer) -> Array{NTuple{ndims,UnitRange{Int}}}
 
 Get the ranges of each block (in the global space)
 
@@ -129,7 +130,7 @@ function get_block_ranges(dims::NTuple{N,Int}, nblocks::Integer) where {N}
         start_idx[i] = end_idx[i] - block_sizes[i] .+ 1
     end
 
-    blks = Array{NTuple{ndims,UnitRange{Int64}}}(undef, tile_dims)
+    blks = Array{NTuple{ndims,UnitRange{Int}}}(undef, tile_dims)
 
     for block_I in CartesianIndices(tile_dims)
         blks[block_I] = [start_idx[dim][x]:end_idx[dim][x]
@@ -139,13 +140,30 @@ function get_block_ranges(dims::NTuple{N,Int}, nblocks::Integer) where {N}
     blks
 end
 
+"""
+    update_block_ranges_with_non_halo_dims(block_ranges, axes_sizes, halo_dims)
+
+Update the ranges in each block to include the non-halo dimensions
+"""
+function update_block_ranges_with_non_halo_dims(block_ranges, axes_sizes, halo_dims)
+    new_ranges = Array{NTuple{length(axes_sizes), UnitRange{Int}}}(undef, size(block_ranges))
+    non_halo_dim_sizes = Tuple([v for (i, v) in enumerate(axes_sizes) if !(i in halo_dims)])
+
+    for I in CartesianIndices(block_ranges)
+        block = block_ranges[I] |> collect
+        non_halo_ranges = UnitRange.(1, non_halo_dim_sizes) |> collect
+        new_range = append!(non_halo_ranges, block)
+        new_ranges[I] = Tuple(new_range)
+    end
+    new_ranges
+end
 
 """
-    repartition(A::BlockHaloArray, nblocks) -> BlockHaloArray
+    repartition(A::AbstractBlockHaloArray, nblocks) -> BlockHaloArray
 
 Repartition the BlockHaloArray into a different block layout
 """
-function repartition!(A::BlockHaloArray, nblocks::Integer)
+function repartition!(A::AbstractBlockHaloArray, nblocks::Integer)
 
     if nblocks == 1
         @warn "Trying to repartition!() into 1 block is prohibited"
@@ -160,12 +178,12 @@ function repartition!(A::BlockHaloArray, nblocks::Integer)
 end
 
 """
-    flatten(A::BlockHaloArray) -> Array
+    flatten(A::AbstractBlockHaloArray) -> Array
 
 Return a flattened version of a BlockHaloArray. This is a copy, since a view
 of the current block structure isn't possible.
 """
-function flatten(A::BlockHaloArray)
+function flatten(A::AbstractBlockHaloArray)
 
     A_flat = zeros(eltype(A), A.globaldims)
     block_ranges = A.global_blockranges
@@ -183,7 +201,7 @@ function flatten(A::BlockHaloArray)
 end
 
 
-function globalsize(A::BlockHaloArray, nohalo=true)
+function globalsize(A::AbstractBlockHaloArray, nohalo=true)
     ndims = length(size(first(A.blocks)))
     global_dims = zeros(Int, ndims)
 
