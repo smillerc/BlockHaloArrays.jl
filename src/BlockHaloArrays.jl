@@ -102,9 +102,9 @@ function BlockHaloArray(dims::NTuple{N,Int}, halodims::NTuple{N2,Int}, nhalo::In
         error("Some (or all) of the given halo_dims $(halodims) are incompatible with the dimensionality of the given array A")
     end
 
-    if nblocks > Threads.nthreads()
-        error("Unable to partition; nblocks ($nblocks) > nthreads ($(nthreads()))")
-    end
+    # if nblocks > Threads.nthreads()
+    @warn "nblocks ($nblocks) > nthreads ($(nthreads()))"
+    # end
 
     blocks = Vector{Array{Float64,N}}(undef, nblocks)
     halo_only_sizes = Tuple([v for (i, v) in enumerate(dims) if i in halodims])
