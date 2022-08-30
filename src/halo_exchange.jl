@@ -306,7 +306,7 @@ function lo_indices(A::AbstractArray, nhalo::Integer, halodims::NTuple{N,Integer
 end
 
 """Get the neighbor block id's for a 1D decomposition"""
-function get_neighbor_blocks(tile_dims::NTuple{1,Integer})
+function get_neighbor_blocks_no_periodic(tile_dims::NTuple{1,Integer})
     nblocks = prod(tile_dims)
     nneighbors = 2
 
@@ -341,9 +341,9 @@ function get_neighbor_blocks(tile_dims::NTuple{1,Integer})
 
     return block_neighbors
 end
-
+    
 """Get the neighbor block id's for a 2D decomposition"""
-function get_neighbor_blocks(tile_dims::NTuple{2,Integer})
+function get_neighbor_blocks_no_periodic(tile_dims::NTuple{2,Integer})
     nblocks = prod(tile_dims)
     nneighbors = 8
 
@@ -382,14 +382,14 @@ function get_neighbor_blocks(tile_dims::NTuple{2,Integer})
             end
             block_neighbor_set[neighbor_id] = (neighbor_symbol, neighbor_block)
         end
-        block_neighbors[LI[i, j]] = Dict(block_neighbor_set)
+        block_neighbors[LI[i, j]] = Dict(block_neighbor_set) # e.g. (:ilo => 4, :jhi => ...), where 4 is the ilo neighbor
     end
 
     return block_neighbors
 end
 
 """Get the neighbor block id's for a 3D decomposition"""
-function get_neighbor_blocks(tile_dims::NTuple{3,Integer})
+function get_neighbor_blocks_no_periodic(tile_dims::NTuple{3,Integer})
     nblocks = prod(tile_dims)
     nneighbors = 3^length(tile_dims) - 1
 
@@ -480,3 +480,195 @@ function get_neighbor_blocks(tile_dims::NTuple{3,Integer})
 
     return block_neighbors
 end
+
+"""Get the neighbor block id's for a 1D decomposition (with periodic edges)"""
+function get_neighbor_blocks(tile_dims::NTuple{1,Integer})
+    nblocks = prod(tile_dims)
+    nneighbors = 2
+
+    CI = CartesianIndices(tile_dims)
+    LI = LinearIndices(tile_dims)
+    block_neighbors = Vector{Dict{Symbol,Int}}(undef, nblocks)
+
+    neighbor_block_sym = [:ilo, :ihi]
+    for i in LI
+
+        # set up the block neighbors based on cartesian indexing
+        neighbor_indices = [(i - 1), (i + 1)]
+
+        block_neighbor_set = Vector{Tuple{Symbol,Int}}(undef, nneighbors)
+
+        # if the index is out of bounds, it's invalid. 
+        # Otherwise, save the 1D index of the block 
+        # that is the proper neighbor
+        for (neighbor_id, idx) in enumerate(neighbor_indices)
+			periodic=false
+            neighbor_symbol = neighbor_block_sym[neighbor_id]
+			for (i, dim) in enumerate(idx)
+				if dim < 1
+					periodic=true
+					idx[i] = tile_dims[i]
+				elseif dim > tile_dims[i]
+					periodic=true
+					idx[i] = 1
+				end
+			end
+			neighbor_block = LI[CI[idx...]]
+			if periodic neighbor_block *= -1 end
+
+			block_neighbor_set[neighbor_id] = (neighbor_symbol, neighbor_block)
+        end
+        block_neighbors[i] = Dict(block_neighbor_set)
+    end
+
+    return block_neighbors
+end
+
+"""Get the neighbor block id's for a 2D decomposition (with periodic edges)"""
+function get_neighbor_blocks(tile_dims::NTuple{2,Integer})
+    nblocks = prod(tile_dims)
+    nneighbors = 8
+
+    CI = CartesianIndices(tile_dims)
+    LI = LinearIndices(tile_dims)
+    block_neighbors = Vector{Dict{Symbol,Int}}(undef, nblocks)
+
+    neighbor_block_sym = [:ilojlo, :jlo, :ihijlo, :ihi, :ihijhi, :jhi, :ilojhi, :ilo]
+    for block_idx in CI
+        i, j = Tuple(block_idx)
+
+        # set up the block neighbors based on cartesian indexing
+        neighbor_indices = [
+            [i - 1, j - 1],
+            [i, j - 1],
+            [i + 1, j - 1],
+            [i + 1, j],
+            [i + 1, j + 1],
+            [i, j + 1],
+            [i - 1, j + 1],
+            [i - 1, j]
+        ]
+
+        block_neighbor_set = Vector{Tuple{Symbol,Int}}(undef, nneighbors)
+        for (neighbor_id, idx) in enumerate(neighbor_indices)
+			periodic=false
+            neighbor_symbol = neighbor_block_sym[neighbor_id]
+			for (i, dim) in enumerate(idx)
+				if dim < 1
+					periodic=true
+					idx[i] = tile_dims[i]
+				elseif dim > tile_dims[i]
+					periodic=true
+					idx[i] = 1
+				end
+			end
+			neighbor_block = LI[CI[idx...]]
+			if periodic neighbor_block *= -1 end
+
+			block_neighbor_set[neighbor_id] = (neighbor_symbol, neighbor_block)
+        end
+		block_neighbors[LI[i, j]] = Dict(block_neighbor_set) # e.g. (:ilo => 4, :jhi => ...), where 4 is the ilo neighbor
+    end
+
+    return block_neighbors
+end
+
+"""Get the neighbor block id's for a 3D decomposition (with periodic edges)"""
+function get_neighbor_blocks(tile_dims::NTuple{3,Integer})
+    nblocks = prod(tile_dims)
+    nneighbors = 3^length(tile_dims) - 1
+
+    CI = CartesianIndices(tile_dims)
+    LI = LinearIndices(tile_dims)
+    block_neighbors = Vector{Dict{Symbol,Int}}(undef, nblocks)
+
+    neighbor_block_sym = [
+        :ihi,
+        :ihijhi,
+        :ihijhikhi,
+        :ihijhiklo,
+        :ihijlo,
+        :ihijlokhi,
+        :ihijloklo,
+        :ihikhi,
+        :ihiklo,
+        :ilo,
+        :ilojhi,
+        :ilojhikhi,
+        :ilojhiklo,
+        :ilojlo,
+        :ilojlokhi,
+        :ilojloklo,
+        :ilokhi,
+        :iloklo,
+        :jhi,
+        :jhikhi,
+        :jhiklo,
+        :jlo,
+        :jlokhi,
+        :jloklo,
+        :khi,
+        :klo,
+    ]
+
+    for block_idx in CI
+        i, j, k = Tuple(block_idx)
+
+        # set up the block neighbors based on cartesian indexing
+        neighbor_indices = [
+            (i + 1, j, k),
+            (i + 1, j + 1, k),
+            (i + 1, j + 1, k + 1),
+            (i + 1, j + 1, k - 1),
+            (i + 1, j - 1, k),
+            (i + 1, j - 1, k + 1),
+            (i + 1, j - 1, k - 1),
+            (i + 1, j, k + 1),
+            (i + 1, j, k - 1),
+            (i - 1, j, k),
+            (i - 1, j + 1, k),
+            (i - 1, j + 1, k + 1),
+            (i - 1, j + 1, k - 1),
+            (i - 1, j - 1, k),
+            (i - 1, j - 1, k + 1),
+            (i - 1, j - 1, k - 1),
+            (i - 1, j, k + 1),
+            (i - 1, j, k - 1),
+            (i, j + 1, k),
+            (i, j + 1, k + 1),
+            (i, j + 1, k - 1),
+            (i, j - 1, k),
+            (i, j - 1, k + 1),
+            (i, j - 1, k - 1),
+            (i, j, k + 1),
+            (i, j, k - 1),
+        ]
+
+        block_neighbor_set = Vector{Tuple{Symbol,Int}}(undef, nneighbors)
+
+        # if the index is out of bounds, it's invalid. 
+        # Otherwise, save the 1D index of the block 
+        # that is the proper neighbor
+        for (neighbor_id, idx) in enumerate(neighbor_indices)
+			periodic=false
+            neighbor_symbol = neighbor_block_sym[neighbor_id]
+			for (i, dim) in enumerate(idx)
+				if dim < 1
+					periodic=true
+					idx[i] = tile_dims[i]
+				elseif dim > tile_dims[i]
+					periodic=true
+					idx[i] = 1
+				end
+			end
+			neighbor_block = LI[CI[idx...]]
+			if periodic neighbor_block *= -1 end
+
+			block_neighbor_set[neighbor_id] = (neighbor_symbol, neighbor_block)
+        end
+        block_neighbors[LI[i, j, k]] = Dict(block_neighbor_set)
+    end
+
+    return block_neighbors
+end
+    
