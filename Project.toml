@@ -11,6 +11,7 @@ ThreadPinning = "811555cd-349b-4f26-b7bc-1f208b848042"
 ThreadPools = "b189fb0b-2eb5-4ed4-bc0c-d34c51242431"
 
 [compat]
+ThreadPinning = "0.4"
 julia = "1.6"
 
 [extras]
