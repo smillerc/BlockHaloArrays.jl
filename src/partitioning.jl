@@ -12,7 +12,8 @@ and the dimensionality `N` of the domain
  - `N::Integer`
 """
 function block_layout(nblocks::Integer, N::Integer)
-    @assert(1 <= N <= 3)
+    @assert (1 <= N <= 3) "Invalid dimensionality of the domain: $N"
+
     if N == 1
         return [nblocks]
     elseif N == 2
@@ -139,6 +140,23 @@ function get_block_ranges(dims::NTuple{N,Int}, nblocks::Integer) where {N}
     blks
 end
 
+"""
+    update_block_ranges_with_non_halo_dims(block_ranges, axes_sizes, halo_dims)
+
+Update the ranges in each block to include the non-halo dimensions
+"""
+function update_block_ranges_with_non_halo_dims(block_ranges, axes_sizes, halo_dims)
+    new_ranges = Array{NTuple{length(axes_sizes), UnitRange{Int}}}(undef, size(block_ranges))
+    non_halo_dim_sizes = Tuple([v for (i, v) in enumerate(axes_sizes) if !(i in halo_dims)])
+
+    for I in CartesianIndices(block_ranges)
+        block = block_ranges[I] |> collect
+        non_halo_ranges = UnitRange.(1, non_halo_dim_sizes) |> collect
+        new_range = append!(non_halo_ranges, block)
+        new_ranges[I] = Tuple(new_range)
+    end
+    new_ranges
+end
 
 """
     repartition(A::AbstractBlockHaloArray, nblocks) -> BlockHaloArray
