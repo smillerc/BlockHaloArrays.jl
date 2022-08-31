@@ -4,6 +4,12 @@ using ThreadPools
 using Test
 using EllipsisNotation
 
+
+function init(A)
+    dom = domainview(A, threadid())
+    fill!(dom, threadid())
+end
+
 @testset "Simple" begin
 
     dims = (30, 20)
@@ -129,11 +135,6 @@ end
     @test A1.neighbor_blocks[2][:ilojlo] == -4
     @test A1.neighbor_blocks[2][:ihijlo] == -6
 
-    function init(A)
-        dom = domainview(A, threadid())
-        fill!(dom, threadid())
-    end
-
     @sync for tid in 1:nblocks
         ThreadPools.@tspawnat tid init(A1)
     end
@@ -159,4 +160,95 @@ end
     @test all(current_block[:, ilo_domn_start:ihi_domn_end, jlo_halo_start:jlo_halo_end] .== 0) # jlo
     @test all(current_block[:, ilo_domn_start:ihi_domn_end, jhi_halo_start:jhi_halo_end] .== 5) # jhi
     
+end
+
+
+@testset "Different Number Types" begin
+    dims = (5, 10, 20)
+    nhalo = 2
+    nblocks = 4
+
+    A_f16 = BlockHaloArray(dims, nhalo, nblocks; T=Float16);
+    A_f32 = BlockHaloArray(dims, nhalo, nblocks; T=Float32);
+    A_f64 = BlockHaloArray(dims, nhalo, nblocks; T=Float64);
+end
+
+@testset "1D Array, 1D halo dims" begin
+    dims = (20,)
+    nhalo = 2
+    nblocks = 4
+    A = BlockHaloArray(dims, nhalo, nblocks; T=Float64);
+
+    @test A.neighbor_blocks[1][:ilo] == -4
+    @test A.neighbor_blocks[1][:ihi] == 2
+    @test A.neighbor_blocks[2][:ilo] == 1
+    @test A.neighbor_blocks[2][:ihi] == 3
+    @test A.neighbor_blocks[3][:ilo] == 2
+    @test A.neighbor_blocks[3][:ihi] == 4
+    @test A.neighbor_blocks[4][:ilo] == 3
+    @test A.neighbor_blocks[4][:ihi] == -1
+
+    @sync for tid in 1:nblocks
+        ThreadPools.@tspawnat tid init(A)
+    end
+    
+    sync_halo!(A)
+
+    blockid = 2
+    hi_domn_start, hi_domn_end, hi_halo_start, hi_halo_end = BlockHaloArrays.hi_indices(A.blocks[blockid], A.nhalo)
+    lo_halo_start, lo_halo_end, lo_domn_start, lo_domn_end = BlockHaloArrays.lo_indices(A.blocks[blockid], A.nhalo)
+
+    ihi_halo_start = first(hi_halo_start)
+    ihi_halo_end = first(hi_halo_end)
+    ilo_halo_start = first(lo_halo_start)
+    ilo_halo_end = first(lo_halo_end)
+
+    current_block = A.blocks[blockid]
+    @test all(current_block[ilo_halo_start:ilo_halo_end] .== 1) # ilo
+    @test all(current_block[ihi_halo_start:ihi_halo_end] .== 3) # ihi
+end
+
+@testset "2D Array, 1D halo dims" begin
+    dims = (10, 20)
+    halodims = (2,)
+    nhalo = 2
+    nblocks = 4
+    A = BlockHaloArray(dims, nhalo, nblocks; T=Float64);
+end
+
+@testset "2D Array, 2D halo dims" begin
+    dims = (10, 20)
+    nhalo = 2
+    nblocks = 4
+    A = BlockHaloArray(dims, nhalo, nblocks; T=Float64);
+end
+
+@testset "3D Array, 1D halo dims" begin
+    dims = (10, 20, 30)
+    halodims = (2,)
+    nhalo = 2
+    nblocks = 4
+    A = BlockHaloArray(dims, nhalo, nblocks; T=Float64);
+end
+
+@testset "3D Array, 2D halo dims" begin
+    dims = (10, 20, 30)
+    halodims = (2, 3)
+    nhalo = 2
+    nblocks = 4
+    A = BlockHaloArray(dims, nhalo, nblocks; T=Float64);
+end
+
+@testset "3D Array, 3D halo dims" begin
+    dims = (10, 20, 30)
+    nhalo = 2
+    nblocks = 6
+    A = BlockHaloArray(dims, nhalo, nblocks; T=Float64);
+
+    @sync for tid in 1:nblocks
+        ThreadPools.@tspawnat tid init(A)
+    end
+
+    sync_halo!(A)
+
 end

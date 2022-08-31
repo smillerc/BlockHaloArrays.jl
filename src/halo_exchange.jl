@@ -95,6 +95,60 @@ function halo_exhange_map_2d()
         :ilojlo => :ihijhi, :ihijlo => :ilojhi, :ihijhi => :ilojlo, :ilojhi => :ihijlo)
 end
 
+function halo_exhange_map_3d()
+    return Dict(
+        :ilo => :ihi,
+        :ihi => :ilo,
+        :jlo => :jhi,
+        :jhi => :jlo,
+        :klo => :khi,
+        :khi => :klo,
+        :ilojlo => :ihijhi,
+        :ihijlo => :ilojhi,
+        :ilojhi => :ihijlo,
+        :ihijhi => :ilojlo,
+        :ilokhi => :ihiklo,
+        :iloklo => :ihikhi,
+        :ihikhi => :iloklo,
+        :ihiklo => :ilokhi,
+        :jhikhi => :jloklo,
+        :jlokhi => :jhiklo,
+        :jhiklo => :jlokhi,
+        :jloklo => :jhikhi,
+        :ilojhikhi => :ihijloklo,
+        :ihijhikhi => :ilojloklo,
+        :ilojlokhi => :ihijhiklo,
+        :ihijlokhi => :ilojhiklo,
+        :ilojhiklo => :ihijlokhi,
+        :ihijhiklo => :ilojlokhi,
+        :ilojloklo => :ihijhikhi,
+        :ihijloklo => :ilojhikhi,
+    )
+
+end
+"""
+    domain_donor_ranges_1d(block, nhalo) -> Dict
+
+Get the ranges for each donor region in the doman that sends data to neighbor block halo regions
+"""
+function domain_donor_ranges_1d(block, nhalo, halodims)
+
+    # domn == domain area
+    _, _, lo_domn_start, lo_domn_end = lo_indices(block, nhalo)
+    hi_domn_start, hi_domn_end, _, _ = hi_indices(block, nhalo)
+
+    ilo_domn_start = [v for (i, v) in enumerate(lo_domn_start) if i in halodims] |> first
+    ilo_domn_end = [v for (i, v) in enumerate(lo_domn_end) if i in halodims] |> first
+    ihi_domn_start = [v for (i, v) in enumerate(hi_domn_start) if i in halodims] |> first
+    ihi_domn_end = [v for (i, v) in enumerate(hi_domn_end) if i in halodims] |> first
+
+    # key -> neighbor id, value -> array index ranges
+    return Dict(
+        :ilo => (ilo_domn_start:ilo_domn_end,),
+        :ihi => (ihi_domn_start:ihi_domn_end,),
+    )
+end
+
 """
     domain_donor_ranges_2d(block, nhalo) -> Dict
 
@@ -121,6 +175,76 @@ function domain_donor_ranges_2d(block, nhalo, halodims)
         :ihijlo => (ihi_domn_start:ihi_domn_end, jlo_domn_start:jlo_domn_end),
         :ilojhi => (ilo_domn_start:ilo_domn_end, jhi_domn_start:jhi_domn_end),
         :ihijhi => (ihi_domn_start:ihi_domn_end, jhi_domn_start:jhi_domn_end),
+    )
+end
+
+"""
+    domain_donor_ranges_3d(block, nhalo) -> Dict
+
+Get the ranges for each donor region in the doman that sends data to neighbor block halo regions
+"""
+function domain_donor_ranges_3d(block, nhalo, halodims)
+
+    # dom == domain area
+    _, _, lo_dom_start, lo_dom_end = lo_indices(block, nhalo)
+    hi_dom_start, hi_dom_end, _, _ = hi_indices(block, nhalo)
+
+    ilo_dom_start, jlo_dom_start, klo_dom_start = [v for (i, v) in enumerate(lo_dom_start) if i in halodims]
+    ilo_dom_end, jlo_dom_end, klo_dom_end = [v for (i, v) in enumerate(lo_dom_end) if i in halodims]
+    ihi_dom_start, jhi_dom_start, khi_dom_start = [v for (i, v) in enumerate(hi_dom_start) if i in halodims]
+    ihi_dom_end, jhi_dom_end, khi_dom_end = [v for (i, v) in enumerate(hi_dom_end) if i in halodims]
+
+    # key -> neighbor id, value -> array index ranges
+    return Dict(
+        :ilo => (ilo_dom_start:ilo_dom_end, jlo_dom_start:jhi_dom_end, klo_dom_start:khi_dom_end),
+        :ihi => (ihi_dom_start:ihi_dom_end, jlo_dom_start:jhi_dom_end, klo_dom_start:khi_dom_end),
+        :jlo => (ilo_dom_start:ihi_dom_end, jlo_dom_start:jlo_dom_end, klo_dom_start:khi_dom_end),
+        :jhi => (ilo_dom_start:ihi_dom_end, jlo_dom_start:jlo_dom_end, klo_dom_start:khi_dom_end),
+        :klo => (ilo_dom_start:ihi_dom_end, jlo_dom_start:jhi_dom_end, klo_dom_start:klo_dom_end),
+        :khi => (ilo_dom_start:ihi_dom_end, jlo_dom_start:jhi_dom_end, khi_dom_start:khi_dom_end),
+        :ilojlo => (ilo_dom_start:ilo_dom_end, jlo_dom_start:jlo_dom_end, klo_dom_start:khi_dom_end),
+        :ihijlo => (ihi_dom_start:ihi_dom_end, jlo_dom_start:jlo_dom_end, klo_dom_start:khi_dom_end),
+        :ilojhi => (ilo_dom_start:ilo_dom_end, jhi_dom_start:jhi_dom_end, klo_dom_start:khi_dom_end),
+        :ihijhi => (ihi_dom_start:ihi_dom_end, jhi_dom_start:jhi_dom_end, klo_dom_start:khi_dom_end),
+        :ilokhi => (ilo_dom_start:ilo_dom_end, jlo_dom_start:jhi_dom_end, khi_dom_start:khi_dom_end),
+        :iloklo => (ilo_dom_start:ilo_dom_end, jlo_dom_start:jhi_dom_end, klo_dom_start:klo_dom_end),
+        :ihikhi => (ihi_dom_start:ihi_dom_end, jlo_dom_start:jhi_dom_end, khi_dom_start:khi_dom_end),
+        :ihiklo => (ihi_dom_start:ihi_dom_end, jlo_dom_start:jhi_dom_end, klo_dom_start:klo_dom_end),
+        :jhikhi => (ilo_dom_start:ilo_dom_end, jhi_dom_start:jhi_dom_end, khi_dom_start:khi_dom_end),
+        :jlokhi => (ilo_dom_start:ilo_dom_end, jlo_dom_start:jlo_dom_end, khi_dom_start:khi_dom_end),
+        :jhiklo => (ilo_dom_start:ilo_dom_end, jhi_dom_start:jhi_dom_end, klo_dom_start:klo_dom_end),
+        :jloklo => (ilo_dom_start:ilo_dom_end, jlo_dom_start:jlo_dom_end, klo_dom_start:klo_dom_end),
+        :ilojhikhi => (ilo_dom_start:ilo_dom_end, jhi_dom_start:jhi_dom_end, khi_dom_start:khi_dom_end),
+        :ihijhikhi => (ihi_dom_start:ihi_dom_end, jhi_dom_start:jhi_dom_end, khi_dom_start:khi_dom_end),
+        :ilojlokhi => (ilo_dom_start:ilo_dom_end, jlo_dom_start:jlo_dom_end, khi_dom_start:khi_dom_end),
+        :ihijlokhi => (ihi_dom_start:ihi_dom_end, jlo_dom_start:jlo_dom_end, khi_dom_start:khi_dom_end),
+        :ilojhiklo => (ilo_dom_start:ilo_dom_end, jhi_dom_start:jhi_dom_end, klo_dom_start:klo_dom_end),
+        :ihijhiklo => (ihi_dom_start:ihi_dom_end, jhi_dom_start:jhi_dom_end, klo_dom_start:klo_dom_end),
+        :ilojloklo => (ilo_dom_start:ilo_dom_end, jlo_dom_start:jlo_dom_end, klo_dom_start:klo_dom_end),
+        :ihijloklo => (ihi_dom_start:ihi_dom_end, jlo_dom_start:jlo_dom_end, klo_dom_start:klo_dom_end),
+    )
+end
+
+"""
+    halo_reciever_ranges_1d(block, nhalo) -> Dict
+
+Get the ranges for each halo region that recieves data from neighbor blocks
+"""
+function halo_reciever_ranges_1d(block, nhalo, halodims)
+
+    # domn == domain area
+    lo_halo_start, lo_halo_end, _, _ = lo_indices(block, nhalo)
+    _, _, hi_halo_start, hi_halo_end = hi_indices(block, nhalo)
+
+    ilo_halo_start = [v for (i, v) in enumerate(lo_halo_start) if i in halodims] |> first
+    ilo_halo_end = [v for (i, v) in enumerate(lo_halo_end) if i in halodims] |> first
+    ihi_halo_start = [v for (i, v) in enumerate(hi_halo_start) if i in halodims] |> first
+    ihi_halo_end = [v for (i, v) in enumerate(hi_halo_end) if i in halodims] |> first
+
+    # key -> neighbor id, value -> array index ranges
+    return Dict(
+        :ilo => (ilo_halo_start:ilo_halo_end,),
+        :ihi => (ihi_halo_start:ihi_halo_end,),
     )
 end
 
@@ -155,42 +279,63 @@ function halo_reciever_ranges_2d(block, nhalo, halodims)
     )
 end
 
-function halo_exhange_map_3d()
-    #   front   |   middle   |    back
-    #  7  6  5  |  16 15 14  |  24 23 22
-    #  8  9  4  |  17    13  |  25 26 21
-    #  1  2  3  |  10 11 12  |  18 19 20 
+"""
+    halo_reciever_ranges_3d(block, nhalo) -> Dict
 
+Get the ranges for each halo region that recieves data from neighbor blocks
+"""
+function halo_reciever_ranges_3d(block, nhalo, halodims)
+
+    # domn == domain area
+    lo_halo_start, lo_halo_end, lo_domn_start, _ = lo_indices(block, nhalo)
+    _, hi_domn_end, hi_halo_start, hi_halo_end = hi_indices(block, nhalo)
+
+    ilo_halo_start, jlo_halo_start, klo_halo_start  = [v for (i, v) in enumerate(lo_halo_start) if i in halodims]
+    ilo_halo_end, jlo_halo_end, klo_halo_end  = [v for (i, v) in enumerate(lo_halo_end) if i in halodims]
+    ilo_domn_start, jlo_domn_start, klo_domn_start  = [v for (i, v) in enumerate(lo_domn_start) if i in halodims]
+    ihi_domn_end, jhi_domn_end, khi_domn_end  = [v for (i, v) in enumerate(hi_domn_end) if i in halodims]
+    ihi_halo_start, jhi_halo_start, khi_halo_start  = [v for (i, v) in enumerate(hi_halo_start) if i in halodims]
+    ihi_halo_end, jhi_halo_end, khi_halo_end  = [v for (i, v) in enumerate(hi_halo_end) if i in halodims]
+
+    # key -> neighbor id, value -> array index ranges
     return Dict(
-        1 => 22,
-        2 => 23,
-        3 => 24,
-        4 => 25,
-        5 => 18,
-        6 => 19,
-        7 => 20,
-        8 => 21,
-        9 => 26,
-        10 => 14,
-        11 => 15,
-        12 => 16,
-        13 => 17,
-        14 => 10,
-        15 => 11,
-        16 => 12,
-        17 => 13,
-        18 => 5,
-        19 => 6,
-        20 => 7,
-        21 => 8,
-        22 => 1,
-        23 => 2,
-        24 => 3,
-        25 => 4,
-        26 => 9,
+        :ilo =>       (ilo_halo_start:ilo_halo_end,jlo_domn_start:jhi_domn_end,klo_domn_start:khi_domn_end),
+        :ihi =>       (ihi_halo_start:ihi_halo_end,jlo_domn_start:jhi_domn_end,klo_domn_start:khi_domn_end),
+        :jlo =>       (ilo_domn_start:ihi_domn_end,jlo_halo_start:jlo_halo_end,klo_domn_start:khi_domn_end),
+        :jhi =>       (ilo_domn_start:ihi_domn_end,jhi_halo_start:jhi_halo_end,klo_domn_start:khi_domn_end),
+        :klo =>       (ilo_domn_start:ihi_domn_end,jlo_domn_start:jhi_domn_end,klo_halo_start:klo_halo_end),
+        :khi =>       (ilo_domn_start:ihi_domn_end,jlo_domn_start:jhi_domn_end,khi_halo_start:khi_halo_end),
+        :ihijhi =>    (ihi_halo_start:ihi_halo_end,jhi_halo_start:jhi_halo_end,klo_domn_start:khi_domn_end),
+        :ihijlo =>    (ihi_halo_start:ihi_halo_end,jlo_halo_start:jlo_halo_end,klo_domn_start:khi_domn_end),
+        :ilojhi =>    (ilo_halo_start:ilo_halo_end,jhi_halo_start:jhi_halo_end,klo_domn_start:khi_domn_end),
+        :ilojlo =>    (ilo_halo_start:ilo_halo_end,jlo_halo_start:jlo_halo_end,klo_domn_start:khi_domn_end),
+        :ihikhi =>    (ihi_halo_start:ihi_halo_end,jlo_domn_start:jhi_domn_end,khi_halo_start:khi_halo_end),
+        :ihiklo =>    (ihi_halo_start:ihi_halo_end,jlo_domn_start:jhi_domn_end,klo_halo_start:klo_halo_end),
+        :iloklo =>    (ilo_halo_start:ilo_halo_end,jlo_domn_start:jhi_domn_end,klo_halo_start:klo_halo_end),
+        :ilokhi =>    (ilo_halo_start:ilo_halo_end,jlo_domn_start:jhi_domn_end,khi_halo_start:khi_halo_end),
+        :jhiklo =>    (ilo_domn_start:ihi_domn_end,jhi_halo_start:jhi_halo_end,klo_halo_start:klo_halo_end),
+        :jloklo =>    (ilo_domn_start:ihi_domn_end,jlo_halo_start:jlo_halo_end,klo_halo_start:klo_halo_end),
+        :jhikhi =>    (ilo_domn_start:ihi_domn_end,jhi_halo_start:jhi_halo_end,khi_halo_start:khi_halo_end),
+        :jlokhi =>    (ilo_domn_start:ihi_domn_end,jlo_halo_start:jlo_halo_end,khi_halo_start:khi_halo_end),
+        :ihijloklo => (ihi_halo_start:ihi_halo_end,jlo_halo_start:jlo_halo_end,klo_halo_start:klo_halo_end),
+        :ilojhiklo => (ilo_halo_start:ilo_halo_end,jhi_halo_start:jhi_halo_end,klo_halo_start:klo_halo_end),
+        :ilojloklo => (ilo_halo_start:ilo_halo_end,jlo_halo_start:jlo_halo_end,klo_halo_start:klo_halo_end),
+        :ihijhiklo => (ihi_halo_start:ihi_halo_end,jhi_halo_start:jhi_halo_end,klo_halo_start:klo_halo_end),
+        :ihijlokhi => (ihi_halo_start:ihi_halo_end,jlo_halo_start:jlo_halo_end,khi_halo_start:khi_halo_end),
+        :ilojhikhi => (ilo_halo_start:ilo_halo_end,jhi_halo_start:jhi_halo_end,khi_halo_start:khi_halo_end),
+        :ilojlokhi => (ilo_halo_start:ilo_halo_end,jlo_halo_start:jlo_halo_end,khi_halo_start:khi_halo_end),
+        :ihijhikhi => (ihi_halo_start:ihi_halo_end,jhi_halo_start:jhi_halo_end,khi_halo_start:khi_halo_end),
     )
 end
 
+"""
+
+Synchronize the halo regions within each block. This spawns tasks so that
+each thread/block copies from it's neighbor block's domain into the current block's halo region.
+
+# Arguments
+A::BlockHaloArray, include_periodic_bc=false
+"""
 function sync_halo!(A::BlockHaloArray, include_periodic_bc=false)
     @sync for tid in 1:length(A.blocks)
         ThreadPools.@tspawnat tid _neighbor_exhange(A, tid, include_periodic_bc)
@@ -209,14 +354,11 @@ end
 function _neighbor_exhange(A::BlockHaloArray, block_id::Integer, include_periodic_bc=false)
     current_block = @views A.blocks[block_id]
 
-    # domain_ranges = domain_donor_ranges_2d(current_block, A.nhalo)
-    # halo_ranges = halo_reciever_ranges_2d(current_block, A.nhalo)
-
     exchange_map, domain_ranges, halo_ranges = get_neighbor_mapping(A, block_id)
 
     for (dom_id, halo_id) in exchange_map
 
-        # The convention is that periodic neighbors block ids are < 1 as a hint to the 
+        # The convention is that periodic neighbors block ids are < 0 as a hint to the 
         # user and code. 
         if include_periodic_bc
             neighbor_id = abs(A.neighbor_blocks[block_id][halo_id])
@@ -349,7 +491,7 @@ function get_neighbor_blocks_no_periodic(tile_dims::NTuple{1,Integer})
 
     return block_neighbors
 end
-    
+
 """Get the neighbor block id's for a 2D decomposition"""
 function get_neighbor_blocks_no_periodic(tile_dims::NTuple{2,Integer})
     nblocks = prod(tile_dims)
@@ -502,7 +644,7 @@ function get_neighbor_blocks(tile_dims::NTuple{1,Integer})
     for i in LI
 
         # set up the block neighbors based on cartesian indexing
-        neighbor_indices = [(i - 1), (i + 1)]
+        neighbor_indices = [[i - 1], [i + 1]]
 
         block_neighbor_set = Vector{Tuple{Symbol,Int}}(undef, nneighbors)
 
@@ -510,21 +652,23 @@ function get_neighbor_blocks(tile_dims::NTuple{1,Integer})
         # Otherwise, save the 1D index of the block 
         # that is the proper neighbor
         for (neighbor_id, idx) in enumerate(neighbor_indices)
-			periodic=false
+            periodic = false
             neighbor_symbol = neighbor_block_sym[neighbor_id]
-			for (i, dim) in enumerate(idx)
-				if dim < 1
-					periodic=true
-					idx[i] = tile_dims[i]
-				elseif dim > tile_dims[i]
-					periodic=true
-					idx[i] = 1
-				end
-			end
-			neighbor_block = LI[CI[idx...]]
-			if periodic neighbor_block *= -1 end
+            for (i, dim) in enumerate(idx)
+                if dim < 1
+                    periodic = true
+                    idx[i] = tile_dims[i]
+                elseif dim > tile_dims[i]
+                    periodic = true
+                    idx[i] = 1
+                end
+            end
+            neighbor_block = LI[CI[idx...]]
+            if periodic
+                neighbor_block *= -1
+            end
 
-			block_neighbor_set[neighbor_id] = (neighbor_symbol, neighbor_block)
+            block_neighbor_set[neighbor_id] = (neighbor_symbol, neighbor_block)
         end
         block_neighbors[i] = Dict(block_neighbor_set)
     end
@@ -559,23 +703,25 @@ function get_neighbor_blocks(tile_dims::NTuple{2,Integer})
 
         block_neighbor_set = Vector{Tuple{Symbol,Int}}(undef, nneighbors)
         for (neighbor_id, idx) in enumerate(neighbor_indices)
-			periodic=false
+            periodic = false
             neighbor_symbol = neighbor_block_sym[neighbor_id]
-			for (i, dim) in enumerate(idx)
-				if dim < 1
-					periodic=true
-					idx[i] = tile_dims[i]
-				elseif dim > tile_dims[i]
-					periodic=true
-					idx[i] = 1
-				end
-			end
-			neighbor_block = LI[CI[idx...]]
-			if periodic neighbor_block *= -1 end
+            for (i, dim) in enumerate(idx)
+                if dim < 1
+                    periodic = true
+                    idx[i] = tile_dims[i]
+                elseif dim > tile_dims[i]
+                    periodic = true
+                    idx[i] = 1
+                end
+            end
+            neighbor_block = LI[CI[idx...]]
+            if periodic
+                neighbor_block *= -1
+            end
 
-			block_neighbor_set[neighbor_id] = (neighbor_symbol, neighbor_block)
+            block_neighbor_set[neighbor_id] = (neighbor_symbol, neighbor_block)
         end
-		block_neighbors[LI[i, j]] = Dict(block_neighbor_set) # e.g. (:ilo => 4, :jhi => ...), where 4 is the ilo neighbor
+        block_neighbors[LI[i, j]] = Dict(block_neighbor_set) # e.g. (:ilo => 4, :jhi => ...), where 4 is the ilo neighbor
     end
 
     return block_neighbors
@@ -624,32 +770,32 @@ function get_neighbor_blocks(tile_dims::NTuple{3,Integer})
 
         # set up the block neighbors based on cartesian indexing
         neighbor_indices = [
-            (i + 1, j, k),
-            (i + 1, j + 1, k),
-            (i + 1, j + 1, k + 1),
-            (i + 1, j + 1, k - 1),
-            (i + 1, j - 1, k),
-            (i + 1, j - 1, k + 1),
-            (i + 1, j - 1, k - 1),
-            (i + 1, j, k + 1),
-            (i + 1, j, k - 1),
-            (i - 1, j, k),
-            (i - 1, j + 1, k),
-            (i - 1, j + 1, k + 1),
-            (i - 1, j + 1, k - 1),
-            (i - 1, j - 1, k),
-            (i - 1, j - 1, k + 1),
-            (i - 1, j - 1, k - 1),
-            (i - 1, j, k + 1),
-            (i - 1, j, k - 1),
-            (i, j + 1, k),
-            (i, j + 1, k + 1),
-            (i, j + 1, k - 1),
-            (i, j - 1, k),
-            (i, j - 1, k + 1),
-            (i, j - 1, k - 1),
-            (i, j, k + 1),
-            (i, j, k - 1),
+            [i + 1, j, k],
+            [i + 1, j + 1, k],
+            [i + 1, j + 1, k + 1],
+            [i + 1, j + 1, k - 1],
+            [i + 1, j - 1, k],
+            [i + 1, j - 1, k + 1],
+            [i + 1, j - 1, k - 1],
+            [i + 1, j, k + 1],
+            [i + 1, j, k - 1],
+            [i - 1, j, k],
+            [i - 1, j + 1, k],
+            [i - 1, j + 1, k + 1],
+            [i - 1, j + 1, k - 1],
+            [i - 1, j - 1, k],
+            [i - 1, j - 1, k + 1],
+            [i - 1, j - 1, k - 1],
+            [i - 1, j, k + 1],
+            [i - 1, j, k - 1],
+            [i, j + 1, k],
+            [i, j + 1, k + 1],
+            [i, j + 1, k - 1],
+            [i, j - 1, k],
+            [i, j - 1, k + 1],
+            [i, j - 1, k - 1],
+            [i, j, k + 1],
+            [i, j, k - 1],
         ]
 
         block_neighbor_set = Vector{Tuple{Symbol,Int}}(undef, nneighbors)
@@ -658,25 +804,27 @@ function get_neighbor_blocks(tile_dims::NTuple{3,Integer})
         # Otherwise, save the 1D index of the block 
         # that is the proper neighbor
         for (neighbor_id, idx) in enumerate(neighbor_indices)
-			periodic=false
+            periodic = false
             neighbor_symbol = neighbor_block_sym[neighbor_id]
-			for (i, dim) in enumerate(idx)
-				if dim < 1
-					periodic=true
-					idx[i] = tile_dims[i]
-				elseif dim > tile_dims[i]
-					periodic=true
-					idx[i] = 1
-				end
-			end
-			neighbor_block = LI[CI[idx...]]
-			if periodic neighbor_block *= -1 end
+            for (i, dim) in enumerate(idx)
+                if dim < 1
+                    periodic = true
+                    idx[i] = tile_dims[i]
+                elseif dim > tile_dims[i]
+                    periodic = true
+                    idx[i] = 1
+                end
+            end
+            neighbor_block = LI[CI[idx...]]
+            if periodic
+                neighbor_block *= -1
+            end
 
-			block_neighbor_set[neighbor_id] = (neighbor_symbol, neighbor_block)
+            block_neighbor_set[neighbor_id] = (neighbor_symbol, neighbor_block)
         end
         block_neighbors[LI[i, j, k]] = Dict(block_neighbor_set)
     end
 
     return block_neighbors
 end
-    
+
