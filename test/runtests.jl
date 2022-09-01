@@ -18,7 +18,7 @@ end
 
     nblocks = 6
 
-    A1 = BlockHaloArray(dims, nhalo, nblocks; T=Float64);
+    A1 = BlockHaloArray(dims, nhalo, nblocks; T=Float64)
     A2 = BlockHaloArray(B, nhalo, nblocks)
 
     @test length(A1.blocks) == nblocks
@@ -46,7 +46,7 @@ end
     @test A1.neighbor_blocks[1][:ihijhi] == 5
     @test A1.neighbor_blocks[1][:ilojlo] == -6
     @test A1.neighbor_blocks[1][:ihijlo] == -5
-    
+
     @test A1.neighbor_blocks[2][:ilo] == 1
     @test A1.neighbor_blocks[2][:ihi] == 3
     @test A1.neighbor_blocks[2][:jlo] == -5
@@ -64,7 +64,7 @@ end
     @sync for tid in 1:nblocks
         ThreadPools.@tspawnat tid init(A1)
     end
-    
+
     include_periodic_bc = false
     sync_halo!(A1, include_periodic_bc)
 
@@ -86,7 +86,7 @@ end
     @test all(current_block[ihi_halo_start:ihi_halo_end, jlo_domn_start:jhi_domn_end] .== 3) # ihi
     @test all(current_block[ilo_domn_start:ihi_domn_end, jlo_halo_start:jlo_halo_end] .== 0) # jlo
     @test all(current_block[ilo_domn_start:ihi_domn_end, jhi_halo_start:jhi_halo_end] .== 5) # jhi
-    
+
 end
 
 @testset "Different Halo Dimensions" begin
@@ -98,7 +98,7 @@ end
 
     nblocks = 6
 
-    A1 = BlockHaloArray(dims, halodims, nhalo, nblocks; T=Float64);
+    A1 = BlockHaloArray(dims, halodims, nhalo, nblocks; T=Float64)
     A2 = BlockHaloArray(B, halodims, nhalo, nblocks)
 
     @test length(A1.blocks) == nblocks
@@ -125,7 +125,7 @@ end
     @test A1.neighbor_blocks[1][:ihijhi] == 5
     @test A1.neighbor_blocks[1][:ilojlo] == -6
     @test A1.neighbor_blocks[1][:ihijlo] == -5
-    
+
     @test A1.neighbor_blocks[2][:ilo] == 1
     @test A1.neighbor_blocks[2][:ihi] == 3
     @test A1.neighbor_blocks[2][:jlo] == -5
@@ -138,7 +138,7 @@ end
     @sync for tid in 1:nblocks
         ThreadPools.@tspawnat tid init(A1)
     end
-    
+
     sync_halo!(A1)
 
     blockid = 2
@@ -159,7 +159,7 @@ end
     @test all(current_block[:, ihi_halo_start:ihi_halo_end, jlo_domn_start:jhi_domn_end] .== 3) # ihi
     @test all(current_block[:, ilo_domn_start:ihi_domn_end, jlo_halo_start:jlo_halo_end] .== 0) # jlo
     @test all(current_block[:, ilo_domn_start:ihi_domn_end, jhi_halo_start:jhi_halo_end] .== 5) # jhi
-    
+
 end
 
 
@@ -168,16 +168,16 @@ end
     nhalo = 2
     nblocks = 4
 
-    A_f16 = BlockHaloArray(dims, nhalo, nblocks; T=Float16);
-    A_f32 = BlockHaloArray(dims, nhalo, nblocks; T=Float32);
-    A_f64 = BlockHaloArray(dims, nhalo, nblocks; T=Float64);
+    A_f16 = BlockHaloArray(dims, nhalo, nblocks; T=Float16)
+    A_f32 = BlockHaloArray(dims, nhalo, nblocks; T=Float32)
+    A_f64 = BlockHaloArray(dims, nhalo, nblocks; T=Float64)
 end
 
 @testset "1D Array, 1D halo dims" begin
     dims = (20,)
     nhalo = 2
     nblocks = 4
-    A = BlockHaloArray(dims, nhalo, nblocks; T=Float64);
+    A = BlockHaloArray(dims, nhalo, nblocks; T=Float64)
 
     @test A.neighbor_blocks[1][:ilo] == -4
     @test A.neighbor_blocks[1][:ihi] == 2
@@ -191,7 +191,7 @@ end
     @sync for tid in 1:nblocks
         ThreadPools.@tspawnat tid init(A)
     end
-    
+
     sync_halo!(A)
 
     blockid = 2
@@ -213,14 +213,14 @@ end
     halodims = (2,)
     nhalo = 2
     nblocks = 4
-    A = BlockHaloArray(dims, nhalo, nblocks; T=Float64);
+    A = BlockHaloArray(dims, nhalo, nblocks; T=Float64)
 end
 
 @testset "2D Array, 2D halo dims" begin
     dims = (10, 20)
     nhalo = 2
     nblocks = 4
-    A = BlockHaloArray(dims, nhalo, nblocks; T=Float64);
+    A = BlockHaloArray(dims, nhalo, nblocks; T=Float64)
 end
 
 @testset "3D Array, 1D halo dims" begin
@@ -228,7 +228,7 @@ end
     halodims = (2,)
     nhalo = 2
     nblocks = 4
-    A = BlockHaloArray(dims, nhalo, nblocks; T=Float64);
+    A = BlockHaloArray(dims, nhalo, nblocks; T=Float64)
 end
 
 @testset "3D Array, 2D halo dims" begin
@@ -236,14 +236,14 @@ end
     halodims = (2, 3)
     nhalo = 2
     nblocks = 4
-    A = BlockHaloArray(dims, nhalo, nblocks; T=Float64);
+    A = BlockHaloArray(dims, nhalo, nblocks; T=Float64)
 end
 
 @testset "3D Array, 3D halo dims" begin
     dims = (10, 20, 30)
     nhalo = 2
     nblocks = 6
-    A = BlockHaloArray(dims, nhalo, nblocks; T=Float64);
+    A = BlockHaloArray(dims, nhalo, nblocks; T=Float64)
 
     @sync for tid in 1:nblocks
         ThreadPools.@tspawnat tid init(A)
@@ -251,4 +251,31 @@ end
 
     sync_halo!(A)
 
+end
+
+@testset "Flat index testing" begin
+
+    dims = (4, 50, 50)
+    global_idx = (1, 26, 26)
+    halodims = (2, 3)
+    A = BlockHaloArray(dims, halodims, 2, 2)
+
+    block_idx = ntuple(i ->
+            BlockHaloArrays.get_block_idx(global_idx[A.halodims[i]],
+                A._cummulative_blocksize_per_dim,
+                A.halodims[i],
+                A.halodims),
+        length(A.halodims))
+
+    local_idx = ntuple(i ->
+            BlockHaloArrays.get_local_idx(global_idx,
+                block_idx,
+                A.nhalo,
+                A._cummulative_blocksize_per_dim,
+                i,
+                A.halodims),
+        length(A.globaldims))
+
+    @test block_idx == (2, 1)
+    @test local_idx == (1, 3, 28)
 end
