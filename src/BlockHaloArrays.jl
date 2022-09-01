@@ -5,13 +5,12 @@ import Base.eltype, Base.size, Base.axes
 using Base.Threads, Base.Iterators, LinearAlgebra
 using ThreadPools, ThreadPinning, NumaAllocators
 using EllipsisNotation
+using OffsetArrays
 
 export BlockHaloArray
 export flatten, repartition!, sync_halo!
 export domainview
 export onboundary
-
-
 
 abstract type AbstractBlockHaloArray end
 
@@ -38,6 +37,10 @@ struct BlockHaloArray{T,N,NH,NBL,AA<:Array{T,N}} <: AbstractBlockHaloArray
     loop_limits::Vector{Vector{Int}}
     globaldims::NTuple{N,Int}
     neighbor_blocks::Vector{Dict{Symbol,Int}}
+
+    # private vars
+    _cummulative_blocksize_per_dim::OffsetVector{Vector{Int64}, Vector{Vector{Int64}}}
+    _linear_indices::LinearIndices{NBL, NTuple{NBL, Base.OneTo{Int}}}
 end
 
 """
@@ -71,6 +74,7 @@ end
 
 include("partitioning.jl")
 include("halo_exchange.jl")
+include("indexing.jl")
 
 """
 Construct a BlockHaloArray
@@ -124,7 +128,15 @@ function BlockHaloArray(dims::NTuple{N,Int}, halodims::NTuple{N2,Int}, nhalo::In
     end
 
     block_sizes = [collect(flatten(size.(block))) for block in block_ranges]
-    
+
+    # this is the cumulative block size along each dimension, indexed via [tile_dimension][1:blocks_in_tile_dim]
+    cummulative_blocksize_per_dim = OffsetArray(
+        cumsum.(collect(split_count.(dims[[i for i in halodims]], tile_dims))), 
+        UnitRange(first(halodims), last(halodims))
+    )
+
+    LI = LinearIndices(tile_dims) # used to convert the cartesian block id into the linear one (for the get/set index methods)
+
     # pad the dimensions that will include halo regions
     for block in block_sizes
         for i in eachindex(block)
@@ -134,7 +146,7 @@ function BlockHaloArray(dims::NTuple{N,Int}, halodims::NTuple{N2,Int}, nhalo::In
         end
     end
 
-    for threadid in eachindex(blocks)       
+    for threadid in eachindex(blocks)
         # allocate on the thread's numa node
         if use_numa
             try
@@ -142,7 +154,7 @@ function BlockHaloArray(dims::NTuple{N,Int}, halodims::NTuple{N2,Int}, nhalo::In
                 numa_id = threadid_to_numa_mapping[threadid]
                 blocks[threadid] = Array{T}(numa(numa_id), block_sizes[threadid]...)
             catch
-                if threadid == firstindex(blocks) 
+                if threadid == firstindex(blocks)
                     @warn "Unable to allocate blocks on the thread-local NUMA node"
                 end
                 blocks[threadid] = Array{T}(undef, block_sizes[threadid]...)
@@ -160,7 +172,8 @@ function BlockHaloArray(dims::NTuple{N,Int}, halodims::NTuple{N2,Int}, nhalo::In
 
     neighbors = get_neighbor_blocks(tile_dims)
 
-    A = BlockHaloArray(blocks, tile_dims, halodims, block_ranges, nhalo, loop_limits, dims, neighbors)
+    A = BlockHaloArray(blocks, tile_dims, halodims, block_ranges, nhalo,
+        loop_limits, dims, neighbors, cummulative_blocksize_per_dim, LI)
 
     # # testing NUMA first-touch policy
     if !mismatched_blocks
@@ -175,7 +188,7 @@ function BlockHaloArray(dims::NTuple{N,Int}, halodims::NTuple{N2,Int}, nhalo::In
         end
     end
 
-    A
+    return A
 end
 
 function BlockHaloArray(A::AbstractArray{T,N}, nhalo::Integer, nblocks=nthreads()) where {T,N}
