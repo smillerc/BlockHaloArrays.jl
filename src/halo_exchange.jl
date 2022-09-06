@@ -338,7 +338,7 @@ A::BlockHaloArray, include_periodic_bc=false
 """
 function sync_halo!(A::BlockHaloArray, include_periodic_bc=false)
     @sync for tid in 1:length(A.blocks)
-        ThreadPools.@tspawnat tid _neighbor_exhange(A, tid, include_periodic_bc)
+        ThreadPools.@tspawnat tid sync_block_halo!(A, tid, include_periodic_bc)
     end
 end
 
@@ -351,7 +351,7 @@ end
 end
 
 """Copy data from the neighbor block into the current block's halo region"""
-function _neighbor_exhange(A::BlockHaloArray, block_id::Integer, include_periodic_bc=false)
+function sync_block_halo!(A::BlockHaloArray, block_id::Integer, include_periodic_bc=false)
     current_block = @views A.blocks[block_id]
 
     exchange_map, domain_ranges, halo_ranges = get_neighbor_mapping(A, block_id)

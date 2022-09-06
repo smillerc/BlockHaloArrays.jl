@@ -162,7 +162,6 @@ end
 
 end
 
-
 @testset "Different Number Types" begin
     dims = (5, 10, 20)
     nhalo = 2

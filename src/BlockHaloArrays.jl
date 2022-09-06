@@ -1,14 +1,15 @@
 module BlockHaloArrays
 
-import Base.eltype, Base.size, Base.axes
-
 using Base.Threads, Base.Iterators, LinearAlgebra
+import Base.eltype, Base.size, Base.axes
+import Base.eachindex, Base.first, Base.firstindex, Base.last, Base.lastindex
+
 using ThreadPools, ThreadPinning, NumaAllocators
 using EllipsisNotation
 using OffsetArrays
 
 export BlockHaloArray
-export flatten, repartition!, sync_halo!
+export flatten, repartition!, sync_halo!, sync_block_halo!
 export domainview
 export onboundary
 
@@ -234,11 +235,19 @@ end
 
 eltype(A::AbstractBlockHaloArray) = eltype(first(A.blocks))
 
-size(A::AbstractBlockHaloArray) = size.(A.blocks)
+size(A::AbstractBlockHaloArray) = A.globaldims
 size(A::AbstractBlockHaloArray, dim) = size.(A.blocks, dim)
 
 axes(A::AbstractBlockHaloArray) = axes.(A.blocks)
 axes(A::AbstractBlockHaloArray, dim) = axes.(A.blocks, dim)
+
+first(A::AbstractBlockHaloArray) = first(A.blocks)
+firstindex(A::AbstractBlockHaloArray) = firstindex(A.blocks)
+
+last(A::AbstractBlockHaloArray) = last(A.blocks)
+lastindex(A::AbstractBlockHaloArray) = lastindex(A.blocks)
+
+eachindex(A::AbstractBlockHaloArray) = eachindex(A.blocks)
 
 nblocks(A::AbstractBlockHaloArray) = length(A.blocks)
 
