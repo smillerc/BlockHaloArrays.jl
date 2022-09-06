@@ -1,14 +1,14 @@
 # BlockHaloArrays
 
-The `BlockHaloArray` type is an array-like type (does not extend `AbstractArray`) that is designed for shared-memory multi-threaded workloads. Typical shared-memory parallelization is done via multi-threaded loops, i.e.:
+The `BlockHaloArray` type is an array-like type (does not extend `AbstractArray`) that is designed for shared-memory multi-threaded workloads. Typical shared-memory parallelization is done via multi-threaded loops (with `@threads`, `@tturbo`, etc.), i.e.:
 ```julia
-@turbo for j in jlo:jhi
+Threads.@threads for j in jlo:jhi
     for i in ilo:ihi
         A[i,j] = ...
     end
 end
 ```
-However, this type of parallelization tends not to scale well, especially for memory-bandwidth limited workloads. The aim of the `BlockHaloArray` type is to create separate chunks, or blocks, of memory for each thread to operate on without data race conditions or memory bandwidth contention. In a sense, this is domain-decomposition on a thread level, rather than the usual MPI domain decomposition. Each thread will be able to operate on it's own block of memory and maintain NUMA-aware locality.
+However, this type of parallelization tends not to scale well, especially for memory-bandwidth limited workloads. This is especially true for stencil operations, where functions access memory at addresses such as `A[i,j], A[i+1,j], A[i-1,j+1]`. The aim of the `BlockHaloArray` type do mini-domain decomposition into separate thread-specific chunks, or blocks, of memory for each thread to operate on without data race conditions or memory bandwidth contention. Because the context is shared memory however, certain operations are more efficient compared to the typical MPI domain decomposition method.Each thread will be able to operate on it's own block of memory and maintain NUMA-aware locality and communication is done via copies, rather than MPI library calls. Future releases will include an MPI-aware `BlockHaloArray` that will facilitate the MPI+Threads hybrid parallelization.
 
 `BlockHaloArray` types should be used in a task-based parallel workload, which has better scaling than multi-threaded loops. The only synchronization required is during the exchange of halo data.
 
