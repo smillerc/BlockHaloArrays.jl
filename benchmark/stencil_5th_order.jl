@@ -290,7 +290,11 @@ function run()
     end
     t_flat = t_elaps_flat / max_iter
 
-    @show t_flat, t_block, t_flat / t_block
+    @show t_flat, t_block
+
+    open("results_5th_order.csv", "a") do io
+        println(io, "$(nthreads()),$t_flat,$t_block")
+    end
 
     nothing
 
