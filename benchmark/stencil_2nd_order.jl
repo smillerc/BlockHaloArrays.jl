@@ -1,5 +1,10 @@
+import Pkg
+
+Pkg.activate("..")
+
 using .Threads
 using ThreadPools
+using ThreadPinning: pinthreads
 using BlockHaloArrays
 using LoopVectorization
 
@@ -159,6 +164,11 @@ function reconstruct_flat!(RS::MUSCLReconstruction, U, i_edge, j_edge, looplimit
 end
 
 function run()
+
+    @show nthreads()
+
+    pinthreads(:compact)
+
     recon = MUSCLReconstruction(MinMod())
 
     dims = (512, 1024) .* 10
