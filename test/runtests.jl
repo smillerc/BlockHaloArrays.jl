@@ -66,7 +66,7 @@ end
     end
 
     include_periodic_bc = false
-    sync_halo!(A1, include_periodic_bc)
+    updatehalo!(A1, include_periodic_bc)
 
     blockid = 2
     hi_domn_start, hi_domn_end, hi_halo_start, hi_halo_end = BlockHaloArrays.hi_indices(A1.blocks[blockid], A1.nhalo)
@@ -139,7 +139,7 @@ end
         ThreadPools.@tspawnat tid init(A1)
     end
 
-    sync_halo!(A1)
+    updatehalo!(A1)
 
     blockid = 2
     hi_domn_start, hi_domn_end, hi_halo_start, hi_halo_end = BlockHaloArrays.hi_indices(A1.blocks[blockid], A1.nhalo)
@@ -191,7 +191,7 @@ end
         ThreadPools.@tspawnat tid init(A)
     end
 
-    sync_halo!(A)
+    updatehalo!(A)
 
     blockid = 2
     hi_domn_start, hi_domn_end, hi_halo_start, hi_halo_end = BlockHaloArrays.hi_indices(A.blocks[blockid], A.nhalo)
@@ -248,7 +248,7 @@ end
         ThreadPools.@tspawnat tid init(A)
     end
 
-    sync_halo!(A)
+    updatehalo!(A)
 
 end
 

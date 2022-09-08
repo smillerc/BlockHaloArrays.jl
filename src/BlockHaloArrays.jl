@@ -9,7 +9,7 @@ using EllipsisNotation
 using OffsetArrays
 
 export BlockHaloArray
-export flatten, repartition!, sync_halo!, sync_block_halo!
+export flatten, repartition!, updatehalo!, sync_block_halo!
 export domainview
 export onboundary
 

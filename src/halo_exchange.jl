@@ -329,14 +329,16 @@ function halo_reciever_ranges_3d(block, nhalo, halodims)
 end
 
 """
+    updatehalo!(A, include_periodic_bc=false)
 
 Synchronize the halo regions within each block. This spawns tasks so that
 each thread/block copies from it's neighbor block's domain into the current block's halo region.
 
 # Arguments
-A::BlockHaloArray, include_periodic_bc=false
+ - `A::BlockHaloArray`
+ - `include_periodic_bc=false`
 """
-function sync_halo!(A::BlockHaloArray, include_periodic_bc=false)
+function updatehalo!(A::BlockHaloArray, include_periodic_bc=false)
     @sync for tid in 1:length(A.blocks)
         ThreadPools.@tspawnat tid sync_block_halo!(A, tid, include_periodic_bc)
     end
