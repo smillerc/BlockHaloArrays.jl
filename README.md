@@ -68,7 +68,7 @@ Anew = flatten(A) # Anew is a 2D Array -- no longer a BlockHaloArray
  - `flatten(A)`: Return a flattened `Array` of `A`. This is a copy.
  - `repartition(A, nblocks)`: Repartition the BlockHaloArray into a different block layout 
  - `updatehalo!(A, include_periodic_bc=false)`: Sync all block halo regions. This uses a `@sync` loop with Threadpools.@tspawnat to sync each block.
- - `sync_block_halo!(A, block_id, include_periodic_bc=false)`: Sync the halo regions of a single block. No `@sync` or `@spawn` calls are used.
+ - `updateblockhalo!(A, block_id, include_periodic_bc=false)`: Sync the halo regions of a single block. No `@sync` or `@spawn` calls are used.
  - `domainview(A, blockid)`: Return a view of a the domain (no halo regions) of block `blockid`
  - `onboundary(A, blockid)`: Is the current block `blockid` on a boundary? This is used help apply boundary conditions in a user code.
 
