@@ -40,7 +40,7 @@ Benchmark results are coming soon...
 
 ### Types
 
-- `BlockHaloArray`: A blocked array-like type (does not extent `AbstractArray`) to be used in a shared-memory type system. This partitions a simple 2D array into N blocks that are to be operated on by threads.
+- `BlockHaloArray`: A blocked array-like type (does not extent `AbstractArray`) to be used in a shared-memory type system. This partitions an `Array` into N blocks that are to be operated on by threads.
 
 #### Constructors
 ```julia
