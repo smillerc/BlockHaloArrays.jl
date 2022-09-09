@@ -10,7 +10,31 @@ end
 ```
 However, this type of parallelization tends not to scale well, especially for memory-bandwidth limited workloads. This is especially true for stencil operations, where functions access memory at addresses such as `A[i,j], A[i+1,j], A[i-1,j+1]`. The aim of the `BlockHaloArray` type do mini-domain decomposition into separate thread-specific chunks, or blocks, of memory for each thread to operate on without data race conditions or memory bandwidth contention. Because the context is shared memory however, certain operations are more efficient compared to the typical MPI domain decomposition method.Each thread will be able to operate on it's own block of memory and maintain NUMA-aware locality and communication is done via copies, rather than MPI library calls. Future releases will include an MPI-aware `BlockHaloArray` that will facilitate the MPI+Threads hybrid parallelization.
 
+An example of a blocked-style stencil operation looks like the following. Note that it can still take advantage of the single-threaded `@turbo` macro to vectorize the nested-loop.
+```julia
+function stencil!(A::BlockHaloArray, blockid)
+    ilo, ihi, jlo, jhi = A.loop_limits[blockid]
+    data = @views A.blocks[blockid]
+    @turbo for j in jlo:jhi
+        for i in ilo:ihi
+            data[i, j] = i * j + 0.25(data[i-2, j] + data[i-1, j] + data[i+2, j] + data[i+1, j] +
+                                      data[i, j] +
+                                      data[i, j-2] + data[i, j-1] + data[i, j+2] + data[i, j+1])
+        end
+    end
+end
+```
+
+Then the `stencil!()` function is split among threads via:
+```julia
+@sync for block_id in 1:nthreads()
+    ThreadPools.@tspawnat block_id stencil!(A, block_id)
+end
+```
+
 `BlockHaloArray` types should be used in a task-based parallel workload, which has better scaling than multi-threaded loops. The only synchronization required is during the exchange of halo data.
+
+Benchmark results are coming soon...
 
 ## Exports
 
@@ -72,6 +96,7 @@ Anew = flatten(A) # Anew is a 2D Array -- no longer a BlockHaloArray
  - `domainview(A, blockid)`: Return a view of a the domain (no halo regions) of block `blockid`
  - `onboundary(A, blockid)`: Is the current block `blockid` on a boundary? This is used help apply boundary conditions in a user code.
 
+Additional overloaded methods include
 ```julia
 eltype(A::AbstractBlockHaloArray) = eltype(first(A.blocks))
 
