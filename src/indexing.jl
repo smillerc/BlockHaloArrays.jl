@@ -83,7 +83,7 @@ end
 """
 Overload the setindex, or A[I] = ... , method for a BlockHaloArray. This is a 'flat' iterator of sorts, 
 since the actual data within the BlockHaloArray is a series of separate blocks. Iterating through
-the array in this manner will be slower due to the additional arithmetic need to find the global
+the array in this manner will be slower due to the additional arithmetic needed to find the global
 to local index conversion for each block.
 """
 function Base.setindex!(A::BlockHaloArray, v, global_idx::Vararg{Int,N}) where {N}
@@ -112,19 +112,19 @@ function Base.setindex!(A::BlockHaloArray, v, block_idx::Int)
     setindex!(A.blocks, v, block_idx)
 end
 
+"""
+    globalindices(A::BlockHaloArray, block_index, local_indices) -> global_indices
 
-# A = BlockHaloArray((4, 50, 50), (2, 3), 2, 2; T=Float64);
-# A.block_layout
-# for blockid in eachindex(A.blocks)
-#     fill!(A.blocks[blockid], blockid)
-# end
+Given a block index and local coordinates, return the global indices
 
+# Example
+```
+julia> globalindices(A, 2, (3, 4)) -> (8, 10)
+```
+"""
+function globalindices(A::BlockHaloArray, block_index::Integer, local_indices)
+    get_idx(idx, b_range) = b_range[idx]
+    block_range = @views A.global_blockranges[block_index]
+    return get_idx.(local_indices, block_range)
+end
 
-# global_idx = (2, 26, 50)
-
-# @code_warntype A[2, 50, 50]
-
-# # @code_warntype A[51]
-# A[1, 2, 50]
-
-# @allocated A[1, 2, 50]

@@ -10,6 +10,7 @@ using OffsetArrays
 
 export BlockHaloArray
 export flatten, repartition!, updatehalo!, updateblockhalo!
+export globalindices, nblocks
 export domainview
 export onboundary
 
@@ -198,7 +199,6 @@ function BlockHaloArray(A::AbstractArray{T,N}, nhalo::Integer, nblocks=nthreads(
 end
 
 """
-
 Construct a BlockHaloArray from a normal Array
 """
 function BlockHaloArray(A::AbstractArray{T,N}, halodims::NTuple{N2,Integer}, nhalo::Integer, nblocks=nthreads()) where {T,N,N2}
