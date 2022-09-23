@@ -22,7 +22,7 @@ for shared-memory applications. Each thread operates on it's own block of data. 
 scaling than multi-threaded loops
 
 # Fields
- - `blocks::Vector{AA}`: 
+ - `blocks::Vector{AA}`:
  - `block_layout::NTuple{D,Int}`: number of blocks along each dimension
  - `global_blockranges::Array{NTuple{D,UnitRange{Int}},D}`: Indexing/ranges of each block from the global perspective
  - `nhalo::Int`: Number of halo regions, e.g. 2 entries along each dimension
@@ -51,7 +51,7 @@ plain `BlockHaloArray` is the addition of send/receive buffers that help
 MPI communication.
 
 # Fields
- - `blocks::Vector{AA}`: 
+ - `blocks::Vector{AA}`:
  - `block_layout::NTuple{D,Int}`: number of blocks along each dimension
  - `global_blockranges::Array{NTuple{D,UnitRange{Int}},D}`: Indexing/ranges of each block from the global perspective
  - `nhalo::Int`: Number of halo regions, e.g. 2 entries along each dimension
@@ -87,7 +87,7 @@ Construct a BlockHaloArray
 
 # Keyword Arguments
  - `nblocks::Integer`: Number of blocks to divide the array into; default is nthreads()
- - `T`:: Array number type; default is Float64 
+ - `T`:: Array number type; default is Float64
 """
 function BlockHaloArray(dims::NTuple{N,Int}, halodims::NTuple{N2,Int}, nhalo::Integer, nblocks=nthreads(); T=Float64, use_numa=true) where {N,N2}
 
@@ -133,7 +133,7 @@ function BlockHaloArray(dims::NTuple{N,Int}, halodims::NTuple{N2,Int}, nhalo::In
 
     # this is the cumulative block size along each dimension, indexed via [tile_dimension][1:blocks_in_tile_dim]
     cummulative_blocksize_per_dim = OffsetArray(
-        cumsum.(collect(split_count.(dims[[i for i in halodims]], tile_dims))), 
+        cumsum.(collect(split_count.(dims[[i for i in halodims]], tile_dims))),
         UnitRange(first(halodims), last(halodims))
     )
 
@@ -156,9 +156,9 @@ function BlockHaloArray(dims::NTuple{N,Int}, halodims::NTuple{N2,Int}, nhalo::In
                 numa_id = threadid_to_numa_mapping[threadid]
                 blocks[threadid] = Array{T}(numa(numa_id), block_sizes[threadid]...)
             catch
-                if threadid == firstindex(blocks)
-                    @warn "Unable to allocate blocks on the thread-local NUMA node"
-                end
+                # if threadid == firstindex(blocks)
+                #     @warn "Unable to allocate blocks on the thread-local NUMA node"
+                # end
                 blocks[threadid] = Array{T}(undef, block_sizes[threadid]...)
             end
         else
@@ -257,7 +257,7 @@ Determine if the block is on the boundary
 # Arguments
  - `A::AbstractBlockHaloArray`: The array in question
  - `blockid::Integer`: The id of the block. This is normally associated with the thread id
- - `boundary::Symbol`: Which boundary are we checking for? Examples include :ilo, :jhi, etc... 
+ - `boundary::Symbol`: Which boundary are we checking for? Examples include :ilo, :jhi, etc...
 """
 function onboundary(A::AbstractBlockHaloArray, blockid::Integer, boundary::Symbol)
     try
