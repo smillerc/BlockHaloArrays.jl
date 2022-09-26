@@ -41,8 +41,10 @@ struct BlockHaloArray{T,N,NH,NBL,AA<:Array{T,N}} <: AbstractBlockHaloArray
     neighbor_blocks::Vector{Dict{Symbol,Int}}
 
     # private vars
-    _cummulative_blocksize_per_dim::OffsetVector{Vector{Int64}, Vector{Vector{Int64}}}
-    _linear_indices::LinearIndices{NBL, NTuple{NBL, Base.OneTo{Int}}}
+    _cummulative_blocksize_per_dim::OffsetVector{Vector{Int64},Vector{Vector{Int64}}}
+    _linear_indices::LinearIndices{NBL,NTuple{NBL,Base.OneTo{Int}}}
+    _donor_views::Vector{Dict{Symbol,SubArray}}
+    _halo_views::Vector{Dict{Symbol,SubArray}}
 end
 
 """
@@ -116,7 +118,7 @@ function BlockHaloArray(dims::NTuple{N,Int}, halodims::NTuple{N2,Int}, nhalo::In
         mismatched_blocks = true
     end
 
-    blocks = Vector{Array{Float64,N}}(undef, nblocks)
+    blocks = Vector{Array{T,N}}(undef, nblocks)
     halo_only_sizes = Tuple([v for (i, v) in enumerate(dims) if i in halodims])
     tile_dims = block_layout(nblocks, length(halodims)) |> Tuple
     halo_only_dims = Tuple([v for (i, v) in enumerate(dims) if i in halodims])
@@ -174,8 +176,25 @@ function BlockHaloArray(dims::NTuple{N,Int}, halodims::NTuple{N2,Int}, nhalo::In
 
     neighbors = get_neighbor_blocks(tile_dims)
 
+    # Pass undef'ed vector to the constructor, since the views
+    # need to be done _after_ the type is created.
+    _halo_views = Vector{Dict{Symbol,SubArray}}(undef, nblocks)
+    _donor_views = Vector{Dict{Symbol,SubArray}}(undef, nblocks)
+
     A = BlockHaloArray(blocks, tile_dims, halodims, block_ranges, nhalo,
-        loop_limits, dims, neighbors, cummulative_blocksize_per_dim, LI)
+        loop_limits, dims, neighbors,
+        cummulative_blocksize_per_dim, LI,
+        _donor_views, _halo_views)
+
+    # Get the halo reciever and domain donor views of each block.
+    # These views are used during the halo sync process
+    halo_views = gen_halo_views(A)
+    donor_views = gen_donor_views(A)
+
+    for i in eachindex(A.blocks)
+        A._halo_views[i] = halo_views[i]
+        A._donor_views[i] = donor_views[i]
+    end
 
     # # testing NUMA first-touch policy
     if !mismatched_blocks

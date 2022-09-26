@@ -1,101 +1,16 @@
-
-function get_1D_halo_regions(dims, nhalo; T=Float64)
-
-    #  7  6  5  |  7  6  5
-    #  8     4  |  8     4
-    #  1  2  3  |  1  2  3
-    #  ---------|---------
-    #  7  6  5  |  7  6  5
-    #  8     4  |  8     4
-    #  1  2  3  |  1  2  3
-
-    return [
-        zeros(T, (nhalo)),   # 1
-        zeros(T, (nhalo)), # 2
-    ]
-end
-
-function get_2D_halo_regions(dims, nhalo; T=Float64)
-
-    #  7  6  5  |  7  6  5
-    #  8     4  |  8     4
-    #  1  2  3  |  1  2  3
-    #  ---------|---------
-    #  7  6  5  |  7  6  5
-    #  8     4  |  8     4
-    #  1  2  3  |  1  2  3
-
-    #   j
-    #   |
-    #   *--- i
-
-    ni, nj = dims
-    return [
-        zeros(T, (nhalo, nhalo)),   # 1
-        zeros(T, (ni, nhalo)), # 2
-        zeros(T, (nhalo, nhalo)),   # 3
-        zeros(T, (nhalo, nj)), # 4
-        zeros(T, (nhalo, nhalo)),   # 5
-        zeros(T, (ni, nhalo)), # 6
-        zeros(T, (nhalo, nj)), # 7
-        zeros(T, (nhalo, nhalo)),   # 8
-    ]
-end
-
-function get_3D_halo_regions(dims, nhalo; T=Float64)
-
-    #   front   |   middle   |    back
-    #  7  6  5  |  16 15 14  |  24 23 22
-    #  8  9  4  |  17    13  |  25 26 21
-    #  1  2  3  |  10 11 12  |  18 19 20 
-
-    #     k
-    #    /
-    #   *--- i
-    #   |
-    #   j
-
-    ni, nj, nk = dims
-    return [
-        zeros(T, (nhalo, nhalo, nhalo)), # 1 
-        zeros(T, (ni, nhalo, nhalo)),    # 2 
-        zeros(T, (nhalo, nhalo, nhalo)), # 3 
-        zeros(T, (nhalo, nj, nhalo)),    # 4 
-        zeros(T, (nhalo, nhalo, nhalo)), # 5 
-        zeros(T, (ni, nhalo, nhalo)),    # 6 
-        zeros(T, (nhalo, nhalo, nhalo)), # 7 
-        zeros(T, (nhalo, nj, nhalo)),    # 8 
-        zeros(T, (ni, nj, nhalo)),       # 9 
-        zeros(T, (nhalo, nhalo, nk)),    # 10
-        zeros(T, (nhalo, nhalo, nk)),    # 11
-        zeros(T, (nhalo, nhalo, nk)),    # 12
-        zeros(T, (nhalo, nhalo, nk)),    # 13
-        zeros(T, (nhalo, nhalo, nk)),    # 14
-        zeros(T, (nhalo, nhalo, nk)),    # 15
-        zeros(T, (nhalo, nhalo, nk)),    # 16
-        zeros(T, (nhalo, nhalo, nk)),    # 17
-        zeros(T, (nhalo, nhalo, nhalo)), # 18
-        zeros(T, (ni, nhalo, nhalo)),    # 19
-        zeros(T, (nhalo, nhalo, nhalo)), # 20
-        zeros(T, (nhalo, nj, nhalo)),    # 21
-        zeros(T, (nhalo, nhalo, nhalo)), # 22
-        zeros(T, (ni, nhalo, nhalo)),    # 23
-        zeros(T, (nhalo, nhalo, nhalo)), # 24
-        zeros(T, (nhalo, nj, nhalo)),    # 25
-        zeros(T, (ni, nj, nhalo)),       # 26
-    ]
-end
-
-function halo_exhange_map_1d()
+"""1D halo exchange mapping, e.g. donor => reciever block ID"""
+function halo_exhange_map(::NTuple{1,Int})
     return Dict(:ilo => :ihi, :ihi => :ilo)
 end
 
-function halo_exhange_map_2d()
+"""2D halo exchange mapping, e.g. donor => reciever block ID"""
+function halo_exhange_map(::NTuple{2,Int})
     return Dict(:ilo => :ihi, :ihi => :ilo, :jlo => :jhi, :jhi => :jlo,
         :ilojlo => :ihijhi, :ihijlo => :ilojhi, :ihijhi => :ilojlo, :ilojhi => :ihijlo)
 end
 
-function halo_exhange_map_3d()
+"""3D halo exchange mapping, e.g. donor => reciever block ID"""
+function halo_exhange_map(::NTuple{3,Int})
     return Dict(
         :ilo => :ihi,
         :ihi => :ilo,
@@ -126,12 +41,13 @@ function halo_exhange_map_3d()
     )
 
 end
-"""
-    domain_donor_ranges_1d(block, nhalo) -> Dict
 
-Get the ranges for each donor region in the doman that sends data to neighbor block halo regions
 """
-function domain_donor_ranges_1d(block, nhalo, halodims)
+    domain_donor_ranges(block, nhal, halodims::NTuple{1, Int}) -> Dict
+
+Get the 1D ranges for each donor region in the doman that sends data to neighbor block halo regions
+"""
+function domain_donor_ranges(block, nhalo, halodims::NTuple{1,Int})
 
     # domn == domain area
     _, _, lo_domn_start, lo_domn_end = lo_indices(block, nhalo)
@@ -150,11 +66,11 @@ function domain_donor_ranges_1d(block, nhalo, halodims)
 end
 
 """
-    domain_donor_ranges_2d(block, nhalo) -> Dict
+    domain_donor_ranges(block, nhal, halodims::NTuple{2, Int}) -> Dict
 
-Get the ranges for each donor region in the doman that sends data to neighbor block halo regions
+Get the 2D ranges for each donor region in the doman that sends data to neighbor block halo regions
 """
-function domain_donor_ranges_2d(block, nhalo, halodims)
+function domain_donor_ranges(block, nhalo, halodims::NTuple{2,Int})
 
     # domn == domain area
     _, _, lo_domn_start, lo_domn_end = lo_indices(block, nhalo)
@@ -179,11 +95,11 @@ function domain_donor_ranges_2d(block, nhalo, halodims)
 end
 
 """
-    domain_donor_ranges_3d(block, nhalo) -> Dict
+    domain_donor_ranges(block, nhal, halodims::NTuple{3, Int}) -> Dict
 
-Get the ranges for each donor region in the doman that sends data to neighbor block halo regions
+Get the 3D ranges for each donor region in the doman that sends data to neighbor block halo regions
 """
-function domain_donor_ranges_3d(block, nhalo, halodims)
+function domain_donor_ranges(block, nhalo, halodims::NTuple{3,Int})
 
     # dom == domain area
     _, _, lo_dom_start, lo_dom_end = lo_indices(block, nhalo)
@@ -210,10 +126,10 @@ function domain_donor_ranges_3d(block, nhalo, halodims)
         :iloklo => (ilo_dom_start:ilo_dom_end, jlo_dom_start:jhi_dom_end, klo_dom_start:klo_dom_end),
         :ihikhi => (ihi_dom_start:ihi_dom_end, jlo_dom_start:jhi_dom_end, khi_dom_start:khi_dom_end),
         :ihiklo => (ihi_dom_start:ihi_dom_end, jlo_dom_start:jhi_dom_end, klo_dom_start:klo_dom_end),
-        :jhikhi => (ilo_dom_start:ilo_dom_end, jhi_dom_start:jhi_dom_end, khi_dom_start:khi_dom_end),
-        :jlokhi => (ilo_dom_start:ilo_dom_end, jlo_dom_start:jlo_dom_end, khi_dom_start:khi_dom_end),
-        :jhiklo => (ilo_dom_start:ilo_dom_end, jhi_dom_start:jhi_dom_end, klo_dom_start:klo_dom_end),
-        :jloklo => (ilo_dom_start:ilo_dom_end, jlo_dom_start:jlo_dom_end, klo_dom_start:klo_dom_end),
+        :jhikhi => (ilo_dom_start:ihi_dom_end, jhi_dom_start:jhi_dom_end, khi_dom_start:khi_dom_end),
+        :jlokhi => (ilo_dom_start:ihi_dom_end, jlo_dom_start:jlo_dom_end, khi_dom_start:khi_dom_end),
+        :jhiklo => (ilo_dom_start:ihi_dom_end, jhi_dom_start:jhi_dom_end, klo_dom_start:klo_dom_end),
+        :jloklo => (ilo_dom_start:ihi_dom_end, jlo_dom_start:jlo_dom_end, klo_dom_start:klo_dom_end),
         :ilojhikhi => (ilo_dom_start:ilo_dom_end, jhi_dom_start:jhi_dom_end, khi_dom_start:khi_dom_end),
         :ihijhikhi => (ihi_dom_start:ihi_dom_end, jhi_dom_start:jhi_dom_end, khi_dom_start:khi_dom_end),
         :ilojlokhi => (ilo_dom_start:ilo_dom_end, jlo_dom_start:jlo_dom_end, khi_dom_start:khi_dom_end),
@@ -226,11 +142,11 @@ function domain_donor_ranges_3d(block, nhalo, halodims)
 end
 
 """
-    halo_reciever_ranges_1d(block, nhalo) -> Dict
+    halo_reciever_ranges(block, nhalo, halodims::NTuple{1, Int}) -> Dict
 
-Get the ranges for each halo region that recieves data from neighbor blocks
+Get the 1D ranges for each halo region that recieves data from neighbor blocks
 """
-function halo_reciever_ranges_1d(block, nhalo, halodims)
+function halo_reciever_ranges(block, nhalo, halodims::NTuple{1,Int})
 
     # domn == domain area
     lo_halo_start, lo_halo_end, _, _ = lo_indices(block, nhalo)
@@ -249,11 +165,11 @@ function halo_reciever_ranges_1d(block, nhalo, halodims)
 end
 
 """
-    halo_reciever_ranges_2d(block, nhalo) -> Dict
+    halo_reciever_ranges(block, nhalo, halodims::NTuple{2, Int}) -> Dict
 
-Get the ranges for each halo region that recieves data from neighbor blocks
+Get the 2D ranges for each halo region that recieves data from neighbor blocks
 """
-function halo_reciever_ranges_2d(block, nhalo, halodims)
+function halo_reciever_ranges(block, nhalo, halodims::NTuple{2,Int})
 
     # domn == domain area
     lo_halo_start, lo_halo_end, lo_domn_start, _ = lo_indices(block, nhalo)
@@ -280,51 +196,51 @@ function halo_reciever_ranges_2d(block, nhalo, halodims)
 end
 
 """
-    halo_reciever_ranges_3d(block, nhalo) -> Dict
+    halo_reciever_ranges(block, nhalo, halodims::NTuple{3, Int}) -> Dict
 
-Get the ranges for each halo region that recieves data from neighbor blocks
+Get the 3D ranges for each halo region that recieves data from neighbor blocks
 """
-function halo_reciever_ranges_3d(block, nhalo, halodims)
+function halo_reciever_ranges(block, nhalo, halodims::NTuple{3,Int})
 
     # domn == domain area
     lo_halo_start, lo_halo_end, lo_domn_start, _ = lo_indices(block, nhalo)
     _, hi_domn_end, hi_halo_start, hi_halo_end = hi_indices(block, nhalo)
 
-    ilo_halo_start, jlo_halo_start, klo_halo_start  = [v for (i, v) in enumerate(lo_halo_start) if i in halodims]
-    ilo_halo_end, jlo_halo_end, klo_halo_end  = [v for (i, v) in enumerate(lo_halo_end) if i in halodims]
-    ilo_domn_start, jlo_domn_start, klo_domn_start  = [v for (i, v) in enumerate(lo_domn_start) if i in halodims]
-    ihi_domn_end, jhi_domn_end, khi_domn_end  = [v for (i, v) in enumerate(hi_domn_end) if i in halodims]
-    ihi_halo_start, jhi_halo_start, khi_halo_start  = [v for (i, v) in enumerate(hi_halo_start) if i in halodims]
-    ihi_halo_end, jhi_halo_end, khi_halo_end  = [v for (i, v) in enumerate(hi_halo_end) if i in halodims]
+    ilo_halo_start, jlo_halo_start, klo_halo_start = [v for (i, v) in enumerate(lo_halo_start) if i in halodims]
+    ilo_halo_end, jlo_halo_end, klo_halo_end = [v for (i, v) in enumerate(lo_halo_end) if i in halodims]
+    ilo_domn_start, jlo_domn_start, klo_domn_start = [v for (i, v) in enumerate(lo_domn_start) if i in halodims]
+    ihi_domn_end, jhi_domn_end, khi_domn_end = [v for (i, v) in enumerate(hi_domn_end) if i in halodims]
+    ihi_halo_start, jhi_halo_start, khi_halo_start = [v for (i, v) in enumerate(hi_halo_start) if i in halodims]
+    ihi_halo_end, jhi_halo_end, khi_halo_end = [v for (i, v) in enumerate(hi_halo_end) if i in halodims]
 
     # key -> neighbor id, value -> array index ranges
     return Dict(
-        :ilo =>       (ilo_halo_start:ilo_halo_end,jlo_domn_start:jhi_domn_end,klo_domn_start:khi_domn_end),
-        :ihi =>       (ihi_halo_start:ihi_halo_end,jlo_domn_start:jhi_domn_end,klo_domn_start:khi_domn_end),
-        :jlo =>       (ilo_domn_start:ihi_domn_end,jlo_halo_start:jlo_halo_end,klo_domn_start:khi_domn_end),
-        :jhi =>       (ilo_domn_start:ihi_domn_end,jhi_halo_start:jhi_halo_end,klo_domn_start:khi_domn_end),
-        :klo =>       (ilo_domn_start:ihi_domn_end,jlo_domn_start:jhi_domn_end,klo_halo_start:klo_halo_end),
-        :khi =>       (ilo_domn_start:ihi_domn_end,jlo_domn_start:jhi_domn_end,khi_halo_start:khi_halo_end),
-        :ihijhi =>    (ihi_halo_start:ihi_halo_end,jhi_halo_start:jhi_halo_end,klo_domn_start:khi_domn_end),
-        :ihijlo =>    (ihi_halo_start:ihi_halo_end,jlo_halo_start:jlo_halo_end,klo_domn_start:khi_domn_end),
-        :ilojhi =>    (ilo_halo_start:ilo_halo_end,jhi_halo_start:jhi_halo_end,klo_domn_start:khi_domn_end),
-        :ilojlo =>    (ilo_halo_start:ilo_halo_end,jlo_halo_start:jlo_halo_end,klo_domn_start:khi_domn_end),
-        :ihikhi =>    (ihi_halo_start:ihi_halo_end,jlo_domn_start:jhi_domn_end,khi_halo_start:khi_halo_end),
-        :ihiklo =>    (ihi_halo_start:ihi_halo_end,jlo_domn_start:jhi_domn_end,klo_halo_start:klo_halo_end),
-        :iloklo =>    (ilo_halo_start:ilo_halo_end,jlo_domn_start:jhi_domn_end,klo_halo_start:klo_halo_end),
-        :ilokhi =>    (ilo_halo_start:ilo_halo_end,jlo_domn_start:jhi_domn_end,khi_halo_start:khi_halo_end),
-        :jhiklo =>    (ilo_domn_start:ihi_domn_end,jhi_halo_start:jhi_halo_end,klo_halo_start:klo_halo_end),
-        :jloklo =>    (ilo_domn_start:ihi_domn_end,jlo_halo_start:jlo_halo_end,klo_halo_start:klo_halo_end),
-        :jhikhi =>    (ilo_domn_start:ihi_domn_end,jhi_halo_start:jhi_halo_end,khi_halo_start:khi_halo_end),
-        :jlokhi =>    (ilo_domn_start:ihi_domn_end,jlo_halo_start:jlo_halo_end,khi_halo_start:khi_halo_end),
-        :ihijloklo => (ihi_halo_start:ihi_halo_end,jlo_halo_start:jlo_halo_end,klo_halo_start:klo_halo_end),
-        :ilojhiklo => (ilo_halo_start:ilo_halo_end,jhi_halo_start:jhi_halo_end,klo_halo_start:klo_halo_end),
-        :ilojloklo => (ilo_halo_start:ilo_halo_end,jlo_halo_start:jlo_halo_end,klo_halo_start:klo_halo_end),
-        :ihijhiklo => (ihi_halo_start:ihi_halo_end,jhi_halo_start:jhi_halo_end,klo_halo_start:klo_halo_end),
-        :ihijlokhi => (ihi_halo_start:ihi_halo_end,jlo_halo_start:jlo_halo_end,khi_halo_start:khi_halo_end),
-        :ilojhikhi => (ilo_halo_start:ilo_halo_end,jhi_halo_start:jhi_halo_end,khi_halo_start:khi_halo_end),
-        :ilojlokhi => (ilo_halo_start:ilo_halo_end,jlo_halo_start:jlo_halo_end,khi_halo_start:khi_halo_end),
-        :ihijhikhi => (ihi_halo_start:ihi_halo_end,jhi_halo_start:jhi_halo_end,khi_halo_start:khi_halo_end),
+        :ilo => (ilo_halo_start:ilo_halo_end, jlo_domn_start:jhi_domn_end, klo_domn_start:khi_domn_end),
+        :ihi => (ihi_halo_start:ihi_halo_end, jlo_domn_start:jhi_domn_end, klo_domn_start:khi_domn_end),
+        :jlo => (ilo_domn_start:ihi_domn_end, jlo_halo_start:jlo_halo_end, klo_domn_start:khi_domn_end),
+        :jhi => (ilo_domn_start:ihi_domn_end, jhi_halo_start:jhi_halo_end, klo_domn_start:khi_domn_end),
+        :klo => (ilo_domn_start:ihi_domn_end, jlo_domn_start:jhi_domn_end, klo_halo_start:klo_halo_end),
+        :khi => (ilo_domn_start:ihi_domn_end, jlo_domn_start:jhi_domn_end, khi_halo_start:khi_halo_end),
+        :ihijhi => (ihi_halo_start:ihi_halo_end, jhi_halo_start:jhi_halo_end, klo_domn_start:khi_domn_end),
+        :ihijlo => (ihi_halo_start:ihi_halo_end, jlo_halo_start:jlo_halo_end, klo_domn_start:khi_domn_end),
+        :ilojhi => (ilo_halo_start:ilo_halo_end, jhi_halo_start:jhi_halo_end, klo_domn_start:khi_domn_end),
+        :ilojlo => (ilo_halo_start:ilo_halo_end, jlo_halo_start:jlo_halo_end, klo_domn_start:khi_domn_end),
+        :ihikhi => (ihi_halo_start:ihi_halo_end, jlo_domn_start:jhi_domn_end, khi_halo_start:khi_halo_end),
+        :ihiklo => (ihi_halo_start:ihi_halo_end, jlo_domn_start:jhi_domn_end, klo_halo_start:klo_halo_end),
+        :iloklo => (ilo_halo_start:ilo_halo_end, jlo_domn_start:jhi_domn_end, klo_halo_start:klo_halo_end),
+        :ilokhi => (ilo_halo_start:ilo_halo_end, jlo_domn_start:jhi_domn_end, khi_halo_start:khi_halo_end),
+        :jloklo => (ilo_domn_start:ihi_domn_end, jlo_halo_start:jlo_halo_end, klo_halo_start:klo_halo_end),
+        :jhikhi => (ilo_domn_start:ihi_domn_end, jhi_halo_start:jhi_halo_end, khi_halo_start:khi_halo_end),
+        :jhiklo => (ilo_domn_start:ihi_domn_end, jhi_halo_start:jhi_halo_end, klo_halo_start:klo_halo_end),
+        :jlokhi => (ilo_domn_start:ihi_domn_end, jlo_halo_start:jlo_halo_end, khi_halo_start:khi_halo_end),
+        :ihijloklo => (ihi_halo_start:ihi_halo_end, jlo_halo_start:jlo_halo_end, klo_halo_start:klo_halo_end),
+        :ilojhiklo => (ilo_halo_start:ilo_halo_end, jhi_halo_start:jhi_halo_end, klo_halo_start:klo_halo_end),
+        :ilojloklo => (ilo_halo_start:ilo_halo_end, jlo_halo_start:jlo_halo_end, klo_halo_start:klo_halo_end),
+        :ihijhiklo => (ihi_halo_start:ihi_halo_end, jhi_halo_start:jhi_halo_end, klo_halo_start:klo_halo_end),
+        :ihijlokhi => (ihi_halo_start:ihi_halo_end, jlo_halo_start:jlo_halo_end, khi_halo_start:khi_halo_end),
+        :ilojhikhi => (ilo_halo_start:ilo_halo_end, jhi_halo_start:jhi_halo_end, khi_halo_start:khi_halo_end),
+        :ilojlokhi => (ilo_halo_start:ilo_halo_end, jlo_halo_start:jlo_halo_end, khi_halo_start:khi_halo_end),
+        :ihijhikhi => (ihi_halo_start:ihi_halo_end, jhi_halo_start:jhi_halo_end, khi_halo_start:khi_halo_end),
     )
 end
 
@@ -362,56 +278,34 @@ Copy data from the neighbor block into the current block's halo region
  - `block_id::Integer`: Block index
  - `include_periodic_bc`: Update the halo regions that are on periodic boundaries
 """
-function updateblockhalo!(A::BlockHaloArray, block_id::Integer, include_periodic_bc=false)
-    current_block = @views A.blocks[block_id]
-
-    exchange_map, domain_ranges, halo_ranges = get_neighbor_mapping(A, block_id)
+function updateblockhalo!(A::BlockHaloArray, current_block_id::Integer, include_periodic_bc=false)
+    exchange_map = halo_exhange_map(A.halodims)
 
     for (dom_id, halo_id) in exchange_map
 
-        # The convention is that periodic neighbors block ids are < 0 as a hint to the 
-        # user and code. 
+        # The convention is that periodic neighbors block ids are < 0 as a hint to the
+        # user and code.
         if include_periodic_bc
-            neighbor_id = abs(A.neighbor_blocks[block_id][halo_id])
+            neighbor_block_id = abs(A.neighbor_blocks[current_block_id][halo_id])
         else
-            neighbor_id = A.neighbor_blocks[block_id][halo_id]
+            neighbor_block_id = A.neighbor_blocks[current_block_id][halo_id]
         end
 
-        if valid_neighbor(neighbor_id)
-            donor = @views A.blocks[neighbor_id][.., domain_ranges[dom_id]...]
-            halo = @views current_block[.., halo_ranges[halo_id]...]
+        if valid_neighbor(neighbor_block_id)
+            hsize = size(A._halo_views[current_block_id][halo_id])
+            dsize = size(A._donor_views[neighbor_block_id][dom_id])
+            bsize = size(A.blocks[current_block_id])
 
-            copy!(halo, donor) # update the halo region
+            if !all(hsize .== dsize)
+                @show current_block_id, neighbor_block_id, halo_id, hsize, dom_id, dsize, bsize
+            end
+            copy!(
+                A._halo_views[current_block_id][halo_id],
+                A._donor_views[neighbor_block_id][dom_id]
+            ) # copy donor -> halo
         end
     end
     return nothing
-end
-
-"""Get the reciever and donor indices for 1D halo exchanges"""
-function get_neighbor_mapping(A::BlockHaloArray{T,N,1,NBL,AA}, block_id::Integer) where {T,N,NBL,AA}
-    donor_ranges = domain_donor_ranges_1d(A.blocks[block_id], A.nhalo, A.halodims)
-    halo_ranges = halo_reciever_ranges_1d(A.blocks[block_id], A.nhalo, A.halodims)
-    exchange_map = halo_exhange_map_1d()
-
-    return exchange_map, donor_ranges, halo_ranges
-end
-
-"""Get the reciever and donor indices for 2D halo exchanges"""
-function get_neighbor_mapping(A::BlockHaloArray{T,N,2,NBL,AA}, block_id::Integer) where {T,N,NBL,AA}
-    donor_ranges = domain_donor_ranges_2d(A.blocks[block_id], A.nhalo, A.halodims)
-    halo_ranges = halo_reciever_ranges_2d(A.blocks[block_id], A.nhalo, A.halodims)
-    exchange_map = halo_exhange_map_2d()
-
-    return exchange_map, donor_ranges, halo_ranges
-end
-
-"""Get the reciever and donor indices for 3D halo exchanges"""
-function get_neighbor_mapping(A::BlockHaloArray{T,N,3,NBL,AA}, block_id::Integer) where {T,N,NBL,AA}
-    donor_ranges = domain_donor_ranges_3d(A.blocks[block_id], A.nhalo, A.halodims)
-    halo_ranges = halo_reciever_ranges_3d(A.blocks[block_id], A.nhalo, A.halodims)
-    exchange_map = halo_exhange_map_3d()
-
-    return exchange_map, donor_ranges, halo_ranges
 end
 
 """Get the upper indices for an array `A` given a number of halo entries `nhalo`"""
@@ -424,7 +318,7 @@ function hi_indices(A::AbstractArray, nhalo::Integer)
     return (hi_domn_start, hi_domn_end, hi_halo_start, hi_halo_end)
 end
 
-"""Get the upper indices for an array `A` given a number of halo entries `nhalo`. This 
+"""Get the upper indices for an array `A` given a number of halo entries `nhalo`. This
 version properly accounts for non-halo dimensions"""
 function hi_indices(A::AbstractArray, nhalo::Integer, halodims::NTuple{N,Integer}) where {N}
 
@@ -450,7 +344,7 @@ function lo_indices(A::AbstractArray, nhalo::Integer)
     return (lo_halo_start, lo_halo_end, lo_domn_start, lo_domn_end)
 end
 
-"""Get the lower indices for an array `A` given a number of halo entries `nhalo`. This 
+"""Get the lower indices for an array `A` given a number of halo entries `nhalo`. This
 version properly accounts for non-halo dimensions"""
 function lo_indices(A::AbstractArray, nhalo::Integer, halodims::NTuple{N,Integer}) where {N}
 
@@ -483,8 +377,8 @@ function get_neighbor_blocks_no_periodic(tile_dims::NTuple{1,Integer})
 
         block_neighbor_set = Vector{Tuple{Symbol,Int}}(undef, nneighbors)
 
-        # if the index is out of bounds, it's invalid. 
-        # Otherwise, save the 1D index of the block 
+        # if the index is out of bounds, it's invalid.
+        # Otherwise, save the 1D index of the block
         # that is the proper neighbor
         for (neighbor_id, idx) in enumerate(neighbor_indices)
 
@@ -530,7 +424,7 @@ function get_neighbor_blocks_no_periodic(tile_dims::NTuple{2,Integer})
 
         block_neighbor_set = Vector{Tuple{Symbol,Int}}(undef, nneighbors)
 
-        # if the index is out of bounds, it's invalid. Otherwise, save the 1D index of the block 
+        # if the index is out of bounds, it's invalid. Otherwise, save the 1D index of the block
         # that is the proper neighbor
         for (neighbor_id, idx) in enumerate(neighbor_indices)
 
@@ -622,8 +516,8 @@ function get_neighbor_blocks_no_periodic(tile_dims::NTuple{3,Integer})
 
         block_neighbor_set = Vector{Tuple{Symbol,Int}}(undef, nneighbors)
 
-        # if the index is out of bounds, it's invalid. 
-        # Otherwise, save the 1D index of the block 
+        # if the index is out of bounds, it's invalid.
+        # Otherwise, save the 1D index of the block
         # that is the proper neighbor
         for (neighbor_id, idx) in enumerate(neighbor_indices)
 
@@ -659,8 +553,8 @@ function get_neighbor_blocks(tile_dims::NTuple{1,Integer})
 
         block_neighbor_set = Vector{Tuple{Symbol,Int}}(undef, nneighbors)
 
-        # if the index is out of bounds, it's invalid. 
-        # Otherwise, save the 1D index of the block 
+        # if the index is out of bounds, it's invalid.
+        # Otherwise, save the 1D index of the block
         # that is the proper neighbor
         for (neighbor_id, idx) in enumerate(neighbor_indices)
             periodic = false
@@ -811,8 +705,8 @@ function get_neighbor_blocks(tile_dims::NTuple{3,Integer})
 
         block_neighbor_set = Vector{Tuple{Symbol,Int}}(undef, nneighbors)
 
-        # if the index is out of bounds, it's invalid. 
-        # Otherwise, save the 1D index of the block 
+        # if the index is out of bounds, it's invalid.
+        # Otherwise, save the 1D index of the block
         # that is the proper neighbor
         for (neighbor_id, idx) in enumerate(neighbor_indices)
             periodic = false
@@ -839,3 +733,39 @@ function get_neighbor_blocks(tile_dims::NTuple{3,Integer})
     return block_neighbors
 end
 
+"""
+Generate the SubArray views of each halo region in `A::BlockHaloArray` that
+"reciever" views. These are the regions updated in the halo exchange copy/update.
+"""
+function gen_halo_views(A)
+
+    blk_halo_views = Vector{Dict{Symbol,SubArray}}(undef, nblocks(A))
+
+    for blk_i in eachindex(A.blocks)
+        halo_reciever = halo_reciever_ranges(A.blocks[blk_i], A.nhalo, A.halodims)
+        blk_halo_views[blk_i] = Dict(
+            k => @view A.blocks[blk_i][.., halo_reciever[k]...] for k in keys(halo_reciever)
+        )
+    end
+
+    blk_halo_views
+end
+
+"""
+Generate the SubArray views of each domain region in `A::BlockHaloArray` that are called
+"donor" views. These are the regions copied from in the halo exchange copy/update.
+"""
+function gen_donor_views(A)
+
+    blk_donor_views = Vector{Dict{Symbol,SubArray}}(undef, nblocks(A))
+
+    for blk_i in eachindex(A.blocks)
+        donor = domain_donor_ranges(A.blocks[blk_i], A.nhalo, A.halodims)
+
+        blk_donor_views[blk_i] = Dict(
+            k => @view A.blocks[blk_i][.., donor[k]...] for k in keys(donor)
+        )
+    end
+
+    blk_donor_views
+end
