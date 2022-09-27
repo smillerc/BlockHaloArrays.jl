@@ -281,7 +281,7 @@ Determine if the block is on the boundary
 """
 function onboundary(A::AbstractBlockHaloArray, blockid::Integer, boundary::Symbol)
     try
-        if A.neighbor_blocks[blockid][boundary] == -1
+        if A.neighbor_blocks[blockid][boundary] < 0
             return true
         else
             return false
