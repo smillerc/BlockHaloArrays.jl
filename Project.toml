@@ -1,7 +1,7 @@
 name = "BlockHaloArrays"
 uuid = "8029ca6b-11ad-4a59-88a2-2e6eee4ef8a2"
 authors = ["Sam Miller <smil@lle.rochester.edu> and contributors"]
-version = "0.3.0"
+version = "0.3.1"
 
 [deps]
 EllipsisNotation = "da5c29d0-fa7d-589e-88eb-ea29b0a81949"

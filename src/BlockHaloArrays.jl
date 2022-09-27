@@ -13,6 +13,7 @@ export flatten, repartition!, updatehalo!, updateblockhalo!
 export globalindices, nblocks
 export domainview
 export onboundary
+export donorview, haloview
 
 abstract type AbstractBlockHaloArray end
 
@@ -308,5 +309,11 @@ function domainview(A::BlockHaloArray, blockid::Integer)
     end
     return @views A.blocks[blockid][.., Tuple(idx_range_vec)...]
 end
+
+"""Get the halo region at a particular location, e.g. `:ilo` for block `blockid`"""
+haloview(A::BlockHaloArray, blockid::Integer, location::Symbol) = A._halo_views[blockid][location]
+
+"""Get the domain donor region at a particular location, e.g. `:ilo` for block `blockid`"""
+donorview(A::BlockHaloArray, blockid::Integer, location::Symbol) = A._donor_views[blockid][location]
 
 end # module
