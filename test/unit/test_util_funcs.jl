@@ -78,3 +78,33 @@ end
     @test onboundary(A, 6, :jlo) == false
     @test onboundary(A, 6, :jhi) == true
 end
+
+@testitem "1D Indexing" begin
+    include("common.jl")
+    x = rand(50)
+    nhalo = 2
+    nblocks = 4
+    A = BlockHaloArray(x, nhalo, nblocks)
+
+    @test all(A[1] .== A.blocks[1])
+end
+
+@testitem "n-D Indexing" begin
+    include("common.jl")
+    x = rand(40, 40)
+    y = rand(4, 40, 40)
+
+    nhalo = 2
+    nblocks = 4
+    A = BlockHaloArray(x, nhalo, nblocks)
+
+    halodims = (2, 3)
+    B = BlockHaloArray(y, halodims, nhalo, nblocks)
+
+    @test A[1] == A.blocks[1]
+    @test size(A[1]) == (24, 24)
+    @test A[1][3,3] == x[1,1]
+    
+    @test B[1][1,3,3] == y[1,1,1]
+    @test B[1][:,3,3] == y[:,1,1]
+end

@@ -55,7 +55,7 @@ since the actual data within the BlockHaloArray is a series of separate blocks. 
 the array in this manner will be slower due to the additional arithmetic need to find the global
 to local index conversion for each block.
 """
-function Base.getindex(A::BlockHaloArray{T,N,NH,NBL,AA}, global_idx::Vararg{Int,N}) where {T,N,NH,NBL,AA}
+function Base.getindex(A::BlockHaloArray{T,N,NH,NBL,AA}, global_idx::NTuple{N,Int}) where {T,N,NH,NBL,AA}
     block_idx = ntuple(i ->
             get_block_idx(global_idx[A.halodims[i]],
                 A._cummulative_blocksize_per_dim,
