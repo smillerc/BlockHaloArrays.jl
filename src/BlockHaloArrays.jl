@@ -228,9 +228,9 @@ end
 """
 Construct a BlockHaloArray from a normal Array
 """
-function BlockHaloArray(A::AbstractArray{T,N}, halodims::NTuple{N2,Integer}, nhalo::Integer, nblocks=nthreads(), tile_dims=nothing) where {T,N,N2}
+function BlockHaloArray(A::AbstractArray{T,N}, halodims::NTuple{N2,Integer}, nhalo::Integer, nblocks=nthreads(); use_numa=true, tile_dims=nothing) where {T,N,N2}
     dims = size(A)
-    A_blocked = BlockHaloArray(dims, halodims, nhalo, nblocks; T=T, tile_dims=tile_dims)
+    A_blocked = BlockHaloArray(dims, halodims, nhalo, nblocks; T=T, use_numa=use_numa, tile_dims=tile_dims)
     block_ranges = A_blocked.global_blockranges
 
     for tid in LinearIndices(block_ranges)
