@@ -92,7 +92,7 @@ Construct a BlockHaloArray
  - `nblocks::Integer`: Number of blocks to divide the array into; default is nthreads()
  - `T`:: Array number type; default is Float64
 """
-function BlockHaloArray(dims::NTuple{N,Int}, halodims::NTuple{N2,Int}, nhalo::Integer, nblocks=nthreads(); T=Float64, use_numa=true) where {N,N2}
+function BlockHaloArray(dims::NTuple{N,Int}, halodims::NTuple{N2,Int}, nhalo::Integer, nblocks=nthreads(); T=Float64, use_numa=true, tile_dims=nothing) where {N,N2}
 
     alldims = Tuple(1:length(dims))
     non_halo_dims = Tuple([i for (i, v) in enumerate(dims) if !(i in halodims)])
@@ -121,14 +121,21 @@ function BlockHaloArray(dims::NTuple{N,Int}, halodims::NTuple{N2,Int}, nhalo::In
 
     blocks = Vector{Array{T,N}}(undef, nblocks)
     halo_only_sizes = Tuple([v for (i, v) in enumerate(dims) if i in halodims])
-    tile_dims = block_layout(nblocks, length(halodims)) |> Tuple
+
+    if tile_dims === nothing
+        tile_dims = block_layout(nblocks, length(halodims)) |> Tuple
+    else
+        if prod(tile_dims) != nblocks
+            error("Invalid tile_dims; the number of blocks is not consistent")
+        end
+    end
     halo_only_dims = Tuple([v for (i, v) in enumerate(dims) if i in halodims])
     non_halo_dim_sizes = Tuple([v for (i, v) in enumerate(dims) if !(i in halodims)])
 
     if halodims == Tuple(1:length(dims))
-        block_ranges = get_block_ranges(dims, nblocks)
+        block_ranges = get_block_ranges(dims, tile_dims)
     else
-        block_ranges_halo_only = get_block_ranges(halo_only_dims, nblocks)
+        block_ranges_halo_only = get_block_ranges(halo_only_dims, tile_dims)
         block_ranges = update_block_ranges_with_non_halo_dims(block_ranges_halo_only, dims, halodims)
     end
 
@@ -213,17 +220,17 @@ function BlockHaloArray(dims::NTuple{N,Int}, halodims::NTuple{N2,Int}, nhalo::In
     return A
 end
 
-function BlockHaloArray(A::AbstractArray{T,N}, nhalo::Integer, nblocks=nthreads()) where {T,N}
+function BlockHaloArray(A::AbstractArray{T,N}, nhalo::Integer, nblocks=nthreads(); use_numa=true, tile_dims=nothing) where {T,N}
     halodims = Tuple(1:length(size(A)))
-    BlockHaloArray(A, halodims, nhalo, nblocks)
+    BlockHaloArray(A, halodims, nhalo, nblocks; use_numa=use_numa, tile_dims=tile_dims)
 end
 
 """
 Construct a BlockHaloArray from a normal Array
 """
-function BlockHaloArray(A::AbstractArray{T,N}, halodims::NTuple{N2,Integer}, nhalo::Integer, nblocks=nthreads()) where {T,N,N2}
+function BlockHaloArray(A::AbstractArray{T,N}, halodims::NTuple{N2,Integer}, nhalo::Integer, nblocks=nthreads(), tile_dims=nothing) where {T,N,N2}
     dims = size(A)
-    A_blocked = BlockHaloArray(dims, halodims, nhalo, nblocks, T=T)
+    A_blocked = BlockHaloArray(dims, halodims, nhalo, nblocks; T=T, tile_dims=tile_dims)
     block_ranges = A_blocked.global_blockranges
 
     for tid in LinearIndices(block_ranges)
@@ -235,10 +242,10 @@ function BlockHaloArray(A::AbstractArray{T,N}, halodims::NTuple{N2,Integer}, nha
     return A_blocked
 end
 
-function BlockHaloArray(dims::NTuple{N,Int}, nhalo::Integer, nblocks=nthreads(); T=Float64, use_numa=true) where {N}
+function BlockHaloArray(dims::NTuple{N,Int}, nhalo::Integer, nblocks=nthreads(); T=Float64, use_numa=true, tile_dims=nothing) where {N}
 
     halodims = Tuple(1:length(dims))
-    BlockHaloArray(dims, halodims, nhalo, nblocks; T=T, use_numa=use_numa)
+    BlockHaloArray(dims, halodims, nhalo, nblocks; T=T, use_numa=use_numa, tile_dims=tile_dims)
 end
 
 """Create a dictionary mapping the threadid to the NUMA node."""

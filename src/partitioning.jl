@@ -119,9 +119,8 @@ Get the ranges of each block (in the global space)
  - `dims::NTuple{N, Int}`: Dimensions of the flat array to split into blocks
  - `nblocks::Integer`: Number of total blocks
 """
-function get_block_ranges(dims::NTuple{N,Int}, nblocks::Integer) where {N}
+function get_block_ranges(dims::NTuple{N,Int}, tile_dims) where {N}
     ndims = length(dims)
-    tile_dims = block_layout(nblocks, ndims) |> Tuple
     block_sizes = split_count.(dims, collect(tile_dims))
 
     end_idx = cumsum.(block_sizes)
