@@ -87,6 +87,7 @@ end
     A = BlockHaloArray(x, nhalo, nblocks)
 
     @test all(A[1] .== A.blocks[1])
+    @test_nowarn A[4] .= 2.5
 end
 
 @testitem "n-D Indexing" begin
@@ -104,7 +105,9 @@ end
     @test A[1] == A.blocks[1]
     @test size(A[1]) == (24, 24)
     @test A[1][3,3] == x[1,1]
-    
+    @test_nowarn A[1][3,3] = 1.2
+
     @test B[1][1,3,3] == y[1,1,1]
     @test B[1][:,3,3] == y[:,1,1]
+    @test_nowarn B[1][1,3,3] =6.7
 end
