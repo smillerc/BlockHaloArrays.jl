@@ -292,13 +292,6 @@ function updateblockhalo!(A::BlockHaloArray, current_block_id::Integer, include_
         end
 
         if valid_neighbor(neighbor_block_id)
-            hsize = size(A._halo_views[current_block_id][halo_id])
-            dsize = size(A._donor_views[neighbor_block_id][dom_id])
-            bsize = size(A.blocks[current_block_id])
-
-            if !all(hsize .== dsize)
-                @show current_block_id, neighbor_block_id, halo_id, hsize, dom_id, dsize, bsize
-            end
             copy!(
                 A._halo_views[current_block_id][halo_id],
                 A._donor_views[neighbor_block_id][dom_id]
