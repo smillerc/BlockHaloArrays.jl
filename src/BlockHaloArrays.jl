@@ -1,7 +1,7 @@
 module BlockHaloArrays
 
 using Base.Threads, Base.Iterators, LinearAlgebra
-import Base.eltype, Base.size, Base.axes
+import Base.eltype, Base.size, Base.axes, Base.copy!
 import Base.eachindex, Base.first, Base.firstindex, Base.last, Base.lastindex
 
 using ThreadPools, ThreadPinning, NumaAllocators
@@ -322,5 +322,55 @@ haloview(A::BlockHaloArray, blockid::Integer, location::Symbol) = A._halo_views[
 
 """Get the domain donor region at a particular location, e.g. `:ilo` for block `blockid`"""
 donorview(A::BlockHaloArray, blockid::Integer, location::Symbol) = A._donor_views[blockid][location]
+
+
+"""
+    copy!(dst, src) -> dst
+
+Copy from an AbstractArray into a BlockHaloArray. The global dimensions of the
+BlockHaloArray must be the same as the AbstractArray
+"""
+function copy!(BHA::BlockHaloArray, AA::AbstractArray)
+
+    if eltype(AA) != eltype(BHA)
+        @warn "Mismatched AbstractArray and BlockHaloArray eltypes"
+    end
+
+    if size(AA) != BHA.globaldims
+        error("Mismatched array dimensions: BlockHaloArray.globaldims $(BHA.globaldims) != size(AbstractArray) $(size(AA))")
+    end
+
+    @sync for block_id in 1:nblocks(BHA)
+        ThreadPools.@tspawnat block_id _array_to_block!(BHA, AA, block_id)
+    end
+end
+    
+function _array_to_block!(BHA::BlockHaloArray, AA::AbstractArray, block_id::Int)
+    dv = domainview(BHA, block_id)
+    av = view(AA, BHA.global_blockranges[block_id]...)
+    copy!(dv, av) # update the block
+end
+
+"""
+    copy!(dst, src) -> dst
+    
+Copy from a BlockHaloArray into an AbstractArray. The global dimensions of the
+BlockHaloArray must be the same as the AbstractArray
+"""
+function copy!(AA::AbstractArray, BHA::BlockHaloArray)
+    if size(AA) != BHA.globaldims
+        error("Mismatched array dimensions: BlockHaloArray.globaldims $(BHA.globaldims) != size(AbstractArray) $(size(AA))")
+    end
+
+    @sync for block_id in 1:nblocks(BHA)
+        ThreadPools.@tspawnat block_id _block_to_array!(AA, BHA, block_id)
+    end
+end
+
+function _block_to_array!(AA::AbstractArray, BHA::BlockHaloArray, block_id::Int)
+    dv = domainview(BHA, block_id)
+    av = view(AA, BHA.global_blockranges[block_id]...)
+    copy!(av, dv) # update the abstract array
+end
 
 end # module

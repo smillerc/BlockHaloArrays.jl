@@ -111,3 +111,24 @@ end
     @test B[1][:,3,3] == y[:,1,1]
     @test_nowarn B[1][1,3,3] =6.7
 end
+
+@testitem "copy!" begin
+    
+    dims = (10, 10)
+    nhalo = 2
+    nblocks = 2
+    AA = rand(dims...)
+    AA2 = zeros(dims...)
+    
+    AA_mismatch = rand(12,10)
+    BHA = BlockHaloArray(dims, nhalo, nblocks)
+
+    @test_throws ErrorException copy!(AA_mismatch, BHA)
+    @test_throws ErrorException copy!(BHA, AA_mismatch)
+
+    copy!(BHA, AA) # copy from the abstract array to the block halo array
+    @test AA == flatten(BHA)
+    
+    copy!(AA2, BHA) # copy from the abstract array to the block halo array
+    @test AA2 == flatten(BHA)
+end
