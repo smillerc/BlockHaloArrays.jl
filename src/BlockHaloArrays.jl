@@ -303,9 +303,21 @@ end
 
 Get the SubArray view of the domain region of a block in the BlockHaloArray.
 """
-function domainview(A::BlockHaloArray, blockid::Integer)
+function domainview(A::BlockHaloArray, blockid::Integer;offset=0)
+
+    if offset > A.nhalo
+        error("offset must be <= nhalo")
+    end
+
+    if offset < 0
+        error("offset must be > 0")
+    end
+
     _, _, lo_dom_start, _ = lo_indices(A.blocks[blockid], A.nhalo)
     _, hi_dom_end, _, _ = hi_indices(A.blocks[blockid], A.nhalo)
+
+    lo_dom_start = lo_dom_start .- offset
+    hi_dom_end = hi_dom_end .+ offset
 
     idx_range = UnitRange.(lo_dom_start, hi_dom_end)
     idx_range_vec = collect(idx_range)

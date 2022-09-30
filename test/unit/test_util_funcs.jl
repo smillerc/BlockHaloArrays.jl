@@ -11,6 +11,22 @@
     @test size(haloview(A, 1, :jhi)) == (25, 2)
 end
 
+@testitem "domainview" begin
+    include("common.jl")
+    nhalo = 3
+    nblocks = 4
+    dims = (40,40)
+    A = BlockHaloArray(dims, nhalo, nblocks)
+    
+    blockid = 1
+    @test size(domainview(A, blockid)) == (20, 20)
+    @test size(domainview(A, blockid; offset=1)) == (22, 22)
+    @test size(domainview(A, blockid; offset=2)) == (24, 24)
+    @test size(domainview(A, blockid; offset=3)) == (26, 26)
+    @test_throws ErrorException domainview(A, blockid; offset=4)
+    @test_throws ErrorException domainview(A, blockid; offset=-1)
+end
+
 @testitem "nblocks" begin
     include("common.jl")
     A = BlockHaloArray((50,50), 2, 4)
