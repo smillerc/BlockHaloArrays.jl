@@ -4,7 +4,7 @@ using Base.Threads, Base.Iterators, LinearAlgebra
 import Base.eltype, Base.size, Base.axes, Base.copy!
 import Base.eachindex, Base.first, Base.firstindex, Base.last, Base.lastindex
 
-using ThreadPools, ThreadPinning, NumaAllocators
+using ThreadPools, NumaAllocators
 using EllipsisNotation
 using OffsetArrays
 
@@ -356,7 +356,7 @@ function copy!(BHA::BlockHaloArray, AA::AbstractArray)
         ThreadPools.@tspawnat block_id _array_to_block!(BHA, AA, block_id)
     end
 end
-    
+
 function _array_to_block!(BHA::BlockHaloArray, AA::AbstractArray, block_id::Int)
     dv = domainview(BHA, block_id)
     av = view(AA, BHA.global_blockranges[block_id]...)
@@ -365,7 +365,7 @@ end
 
 """
     copy!(dst, src) -> dst
-    
+
 Copy from a BlockHaloArray into an AbstractArray. The global dimensions of the
 BlockHaloArray must be the same as the AbstractArray
 """
