@@ -76,6 +76,38 @@ function Base.getindex(A::BlockHaloArray{T,N,NH,NBL,AA}, global_idx::NTuple{N,In
     return A.blocks[block_id][local_idx...]
 end
 
+"""
+Get the scalar block index give a global index tuple 
+"""
+function blockindex(A::BlockHaloArray{T,N,NH,NBL,AA}, global_idx::NTuple{N,Int}) where {T,N,NH,NBL,AA}
+    block_idx = ntuple(i ->
+            get_block_idx(global_idx[A.halodims[i]],
+                A._cummulative_blocksize_per_dim,
+                A.halodims[i],
+                A.halodims),
+        length(A.halodims))
+
+    return A._linear_indices[block_idx...]
+end
+
+"""
+Get the block-local indices give a global index tuple 
+"""
+function localindex(A::BlockHaloArray{T,N,NH,NBL,AA}, global_idx::NTuple{N,Int}) where {T,N,NH,NBL,AA}
+
+    block_idx = blockindex(A, global_idx)
+    local_idx = ntuple(i ->
+            get_local_idx(global_idx,
+                block_idx,
+                A.nhalo,
+                A._cummulative_blocksize_per_dim,
+                i,
+                A.halodims),
+        length(A.globaldims))
+
+    return local_idx
+end
+
 function Base.getindex(A::BlockHaloArray, block_idx::Int)
     return A.blocks[block_idx]
 end
@@ -123,8 +155,8 @@ julia> globalindices(A, 2, (3, 4)) -> (8, 10)
 ```
 """
 function globalindices(A::BlockHaloArray, block_index::Integer, local_indices)
-    get_idx(idx, b_range) = b_range[idx]
+    get_idx(idx, b_range, nhalo) = b_range[idx - nhalo]
     block_range = @views A.global_blockranges[block_index]
-    return get_idx.(local_indices, block_range)
+    return get_idx.(local_indices, block_range, A.nhalo)
 end
 

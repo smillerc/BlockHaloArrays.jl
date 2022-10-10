@@ -14,6 +14,7 @@ export globalindices, nblocks
 export domainview
 export onboundary
 export donorview, haloview
+export blockindex, localindex
 
 abstract type AbstractBlockHaloArray end
 

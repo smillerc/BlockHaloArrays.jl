@@ -128,6 +128,19 @@ end
     @test_nowarn B[1][1,3,3] =6.7
 end
 
+@testitem "globalindices" begin
+
+    x = rand(40, 40)
+    nhalo = 2
+    nblocks = 4
+    A = BlockHaloArray(x, nhalo, nblocks)
+
+    @test globalindices(A, 1, (3, 3)) == (1, 1)
+    @test globalindices(A, 4, (3, 3)) == (21, 21)
+
+    @show globalindices(A, 4, (22, 22))
+end
+
 @testitem "copy!" begin
     
     dims = (10, 10)
