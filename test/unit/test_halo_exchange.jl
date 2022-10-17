@@ -3,10 +3,10 @@
 
     dims = (50, 50)
     nhalo = 2
-    nblocks = 6
+    n_blocks = 6
 
-    A = BlockHaloArray(dims, nhalo, nblocks; T=Int64)
-    @test length(A.blocks) == nblocks
+    A = BlockHaloArray(dims, nhalo, n_blocks; T=Int64)
+    @test length(A.blocks) == n_blocks
     @test A.block_layout == (3, 2)
 
     # for a (3,2) block layout, here are the block id's
@@ -30,25 +30,25 @@
         Dict(:ilo => 5, :ihi => -4, :jlo => 3, :jhi => -3, :ilojhi => -2, :ihijhi => -1, :ilojlo => 2, :ihijlo => -1), # 6
     ]
 
-    for blockid in 1:nblocks
+    for blockid in 1:n_blocks
         for key in keys(first(blk_neighbor))
             @test A.neighbor_blocks[blockid][key] == blk_neighbor[blockid][key]
         end
     end
 
-    @sync for tid in 1:nblocks
+    @sync for tid in 1:n_blocks
         @tspawnat tid init(A, tid)
     end
 
     include_periodic_bc = true
     updatehalo!(A, include_periodic_bc)
 
-    for blockid in 1:nblocks
+    for blockid in 1:n_blocks
         dv = domainview(A, blockid)
         @test all(dv .== blockid)
     end
 
-    for blockid in 1:nblocks
+    for blockid in 1:n_blocks
         hi_domn_start, hi_domn_end, hi_halo_start, hi_halo_end = BlockHaloArrays.hi_indices(A.blocks[blockid], A.nhalo)
         lo_halo_start, lo_halo_end, lo_domn_start, lo_domn_end = BlockHaloArrays.lo_indices(A.blocks[blockid], A.nhalo)
 
@@ -81,10 +81,10 @@ end
     dims = (4, 30, 20)
     halodims = (2, 3)
     nhalo = 2
-    nblocks = 6
+    n_blocks = 6
 
-    A = BlockHaloArray(dims, halodims, nhalo, nblocks; T=Int64)
-    @test length(A.blocks) == nblocks
+    A = BlockHaloArray(dims, halodims, nhalo, n_blocks; T=Int64)
+    @test length(A.blocks) == n_blocks
     @test A.block_layout == (3, 2)
 
     # for a (3,2) block layout, here are the block id's
@@ -107,17 +107,17 @@ end
         Dict(:ilo => 5, :ihi => -4, :jlo => 3, :jhi => -3, :ilojhi => -2, :ihijhi => -1, :ilojlo => 2, :ihijlo => -1), # 6
     ]
 
-    for blockid in 1:nblocks
+    for blockid in 1:n_blocks
         for key in keys(first(blk_neighbor))
             @test A.neighbor_blocks[blockid][key] == blk_neighbor[blockid][key]
         end
     end
 
-    @sync for tid in 1:nblocks
+    @sync for tid in 1:n_blocks
         @tspawnat tid init(A, tid)
     end
 
-    for blockid in 1:nblocks
+    for blockid in 1:n_blocks
         dv = domainview(A, blockid)
         @test all(dv .== blockid)
     end
@@ -125,7 +125,7 @@ end
     include_periodic_bc = true
     updatehalo!(A, include_periodic_bc)
 
-    for blockid in 1:nblocks
+    for blockid in 1:n_blocks
         hi_domn_start, hi_domn_end, hi_halo_start, hi_halo_end = BlockHaloArrays.hi_indices(A.blocks[blockid], A.nhalo, A.halodims)
         lo_halo_start, lo_halo_end, lo_domn_start, lo_domn_end = BlockHaloArrays.lo_indices(A.blocks[blockid], A.nhalo, A.halodims)
 
@@ -157,8 +157,8 @@ end
 
     dims = (20,)
     nhalo = 2
-    nblocks = 4
-    A = BlockHaloArray(dims, nhalo, nblocks; T=Int32)
+    n_blocks = 4
+    A = BlockHaloArray(dims, nhalo, n_blocks; T=Int32)
 
     @test A.neighbor_blocks[1][:ilo] == -4
     @test A.neighbor_blocks[1][:ihi] == 2
@@ -169,14 +169,14 @@ end
     @test A.neighbor_blocks[4][:ilo] == 3
     @test A.neighbor_blocks[4][:ihi] == -1
 
-    @sync for tid in 1:nblocks
+    @sync for tid in 1:n_blocks
         @tspawnat tid init(A, tid)
     end
 
     include_periodic_bc = true
     updatehalo!(A, include_periodic_bc)
 
-    for blockid in 1:nblocks
+    for blockid in 1:n_blocks
         hi_domn_start, hi_domn_end, hi_halo_start, hi_halo_end = BlockHaloArrays.hi_indices(A.blocks[blockid], A.nhalo)
         lo_halo_start, lo_halo_end, lo_domn_start, lo_domn_end = BlockHaloArrays.lo_indices(A.blocks[blockid], A.nhalo)
 
@@ -200,17 +200,17 @@ end
 
     dims = (10, 20, 30)
     nhalo = 2
-    nblocks = 6
-    A = BlockHaloArray(dims, nhalo, nblocks; T=Float64)
+    n_blocks = 6
+    A = BlockHaloArray(dims, nhalo, n_blocks; T=Float64)
 
-    @sync for tid in 1:nblocks
+    @sync for tid in 1:n_blocks
         @tspawnat tid init(A, tid)
     end
 
     include_periodic_bc = true
     updatehalo!(A, include_periodic_bc)
 
-    for blockid in 1:nblocks
+    for blockid in 1:n_blocks
         hi_domn_start, hi_domn_end, hi_halo_start, hi_halo_end = BlockHaloArrays.hi_indices(A.blocks[blockid], A.nhalo)
         lo_halo_start, lo_halo_end, lo_domn_start, lo_domn_end = BlockHaloArrays.lo_indices(A.blocks[blockid], A.nhalo)
 

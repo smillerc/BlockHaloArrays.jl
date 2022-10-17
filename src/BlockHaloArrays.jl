@@ -32,11 +32,11 @@ scaling than multi-threaded loops
  - `globaldims::NTuple{D,Int}`: Dimensions of the array if it were a simple `Array{T,D}`, e.g. `(20,20)`
 
 """
-struct BlockHaloArray{T,N,NH,NBL,AA<:Array{T,N}} <: AbstractBlockHaloArray
+struct BlockHaloArray{T,N,NH,NBL,AA<:Array{T,N},SA} <: AbstractBlockHaloArray
     blocks::Vector{AA}
     block_layout::NTuple{NBL,Int}
     halodims::NTuple{NH,Int}
-    global_blockranges::Array{NTuple{N,UnitRange{Int}}}
+    global_blockranges::Vector{NTuple{N,UnitRange{Int}}}
     nhalo::Int
     loop_limits::Vector{Vector{Int}}
     globaldims::NTuple{N,Int}
@@ -45,8 +45,8 @@ struct BlockHaloArray{T,N,NH,NBL,AA<:Array{T,N}} <: AbstractBlockHaloArray
     # private vars
     _cummulative_blocksize_per_dim::OffsetVector{Vector{Int64},Vector{Vector{Int64}}}
     _linear_indices::LinearIndices{NBL,NTuple{NBL,Base.OneTo{Int}}}
-    _donor_views::Vector{Dict{Symbol,SubArray}}
-    _halo_views::Vector{Dict{Symbol,SubArray}}
+    _donor_views::Vector{Dict{Symbol,SA}}
+    _halo_views::Vector{Dict{Symbol,SA}}
 end
 
 """
@@ -69,7 +69,7 @@ struct MPIBlockHaloArray{T,N,NH,NBL,AA<:Array{T,N}} <: AbstractBlockHaloArray
     blocks::Vector{AA}
     block_layout::NTuple{NBL,Int}
     halodims::NTuple{NH,Int}
-    global_blockranges::Array{NTuple{N,UnitRange{Int}}}
+    global_blockranges::Vector{NTuple{N,UnitRange{Int}}}
     nhalo::Int
     loop_limits::Vector{Vector{Int}}
     globaldims::NTuple{N,Int}
@@ -131,6 +131,7 @@ function BlockHaloArray(dims::NTuple{N,Int}, halodims::NTuple{N2,Int}, nhalo::In
         end
     end
     halo_only_dims = Tuple([v for (i, v) in enumerate(dims) if i in halodims])
+    nhalodims = length(halo_only_dims)
     non_halo_dim_sizes = Tuple([v for (i, v) in enumerate(dims) if !(i in halodims)])
 
     if halodims == Tuple(1:length(dims))
@@ -187,13 +188,18 @@ function BlockHaloArray(dims::NTuple{N,Int}, halodims::NTuple{N2,Int}, nhalo::In
 
     # Pass undef'ed vector to the constructor, since the views
     # need to be done _after_ the type is created.
-    _halo_views = Vector{Dict{Symbol,SubArray}}(undef, nblocks)
-    _donor_views = Vector{Dict{Symbol,SubArray}}(undef, nblocks)
+    _halo_views = gen_halo_views(blocks, nhalo, halodims)
+    HaloViewTypes = typeof(first(_halo_views)[:ilo])
+    halo_views = Vector{Dict{Symbol, HaloViewTypes}}(undef, nblocks)
 
-    A = BlockHaloArray(blocks, tile_dims, halodims, block_ranges, nhalo,
+    _donor_views = gen_donor_views(blocks, nhalo, halodims)
+    DonorViewTypes = typeof(first(_donor_views)[:ilo])
+    donor_views = Vector{Dict{Symbol, DonorViewTypes}}(undef, nblocks)
+    
+    A = BlockHaloArray(blocks, tile_dims, halodims, vec(block_ranges), nhalo,
         loop_limits, dims, neighbors,
         cummulative_blocksize_per_dim, LI,
-        _donor_views, _halo_views)
+        donor_views, halo_views)
 
     # Get the halo reciever and domain donor views of each block.
     # These views are used during the halo sync process

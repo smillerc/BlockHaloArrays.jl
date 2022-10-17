@@ -255,8 +255,8 @@ each thread/block copies from it's neighbor block's domain into the current bloc
  - `include_periodic_bc`: Update the halo regions that are on periodic boundaries
 """
 function updatehalo!(A::BlockHaloArray, include_periodic_bc=false)
-    @sync for tid in 1:length(A.blocks)
-        ThreadPools.@tspawnat tid updateblockhalo!(A, tid, include_periodic_bc)
+    @sync for tid in eachindex(A.blocks)
+        @tspawnat tid updateblockhalo!(A, tid, include_periodic_bc)
     end
 end
 
@@ -283,12 +283,11 @@ function updateblockhalo!(A::BlockHaloArray, current_block_id::Integer, include_
 
     for (dom_id, halo_id) in exchange_map
 
+        neighbor_block_id = A.neighbor_blocks[current_block_id][halo_id]
         # The convention is that periodic neighbors block ids are < 0 as a hint to the
         # user and code.
         if include_periodic_bc
-            neighbor_block_id = abs(A.neighbor_blocks[current_block_id][halo_id])
-        else
-            neighbor_block_id = A.neighbor_blocks[current_block_id][halo_id]
+            neighbor_block_id = abs(neighbor_block_id)
         end
 
         if valid_neighbor(neighbor_block_id)
@@ -744,6 +743,20 @@ function gen_halo_views(A)
     blk_halo_views
 end
 
+function gen_halo_views(blocks, nhalo, halodims)
+
+    blk_halo_views = Vector{Dict{Symbol,SubArray}}(undef, length(blocks))
+
+    for blk_i in eachindex(blocks)
+        halo_reciever = halo_reciever_ranges(blocks[blk_i], nhalo, halodims)
+        blk_halo_views[blk_i] = Dict(
+            k => @view blocks[blk_i][.., halo_reciever[k]...] for k in keys(halo_reciever)
+        )
+    end
+
+    blk_halo_views
+end
+
 """
 Generate the SubArray views of each domain region in `A::BlockHaloArray` that are called
 "donor" views. These are the regions copied from in the halo exchange copy/update.
@@ -757,6 +770,21 @@ function gen_donor_views(A)
 
         blk_donor_views[blk_i] = Dict(
             k => @view A.blocks[blk_i][.., donor[k]...] for k in keys(donor)
+        )
+    end
+
+    blk_donor_views
+end
+
+function gen_donor_views(blocks, nhalo, halodims)
+
+    blk_donor_views = Vector{Dict{Symbol,SubArray}}(undef, length(blocks))
+
+    for blk_i in eachindex(blocks)
+        donor = domain_donor_ranges(blocks[blk_i], nhalo, halodims)
+
+        blk_donor_views[blk_i] = Dict(
+            k => @view blocks[blk_i][.., donor[k]...] for k in keys(donor)
         )
     end
 
