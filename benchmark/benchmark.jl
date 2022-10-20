@@ -16,7 +16,7 @@ end
 
 function blocked_version(A)
     @sync for tid in 1:nthreads()
-        ThreadPools.@tspawnat tid _blocked(A, tid)
+        @tspawnat tid _blocked(A, tid)
     end
 end
 

@@ -31,6 +31,7 @@ hidexdecorations!(ax3)
 lines!(ax2, f.nthreads, f.t_block, label="BlockHaloArray")
 lines!(ax2, f.nthreads, f.t_flat, label="@tturbo")
 lines!(ax3, f.nthreads, f.t_flat ./ f.t_block, color=:black)
+lines!(ax2, [NaN], [NaN], label="speedup", color=:black)
 
 fig[1, 2] = Legend(fig, ax,)
 fig[2, 2] = Legend(fig, ax2,)
