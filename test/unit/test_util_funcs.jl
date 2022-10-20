@@ -2,8 +2,8 @@
     include("common.jl")
     dims = (50, 50)
     nhalo = 2
-    nblocks = 4
-    A = BlockHaloArray(dims, nhalo, nblocks)
+    n_blocks = 4
+    A = BlockHaloArray(dims, nhalo, n_blocks)
 
     @test size(donorview(A, 1, :ilo)) == (2, 25)
     @test size(haloview(A, 1, :ilo)) == (2, 25)
@@ -14,9 +14,9 @@ end
 @testitem "domainview" begin
     include("common.jl")
     nhalo = 3
-    nblocks = 4
+    n_blocks = 4
     dims = (40,40)
-    A = BlockHaloArray(dims, nhalo, nblocks)
+    A = BlockHaloArray(dims, nhalo, n_blocks)
     
     blockid = 1
     @test size(domainview(A, blockid)) == (20, 20)
@@ -50,9 +50,9 @@ end
 
     dims = (50, 50)
     nhalo = 2
-    nblocks = 6
+    n_blocks = 6
 
-    A = BlockHaloArray(dims, nhalo, nblocks; T=Int64)
+    A = BlockHaloArray(dims, nhalo, n_blocks; T=Int64)
 
     # for a (3,2) block layout, here are the block id's
     #
@@ -99,8 +99,8 @@ end
     include("common.jl")
     x = rand(50)
     nhalo = 2
-    nblocks = 4
-    A = BlockHaloArray(x, nhalo, nblocks)
+    n_blocks = 4
+    A = BlockHaloArray(x, nhalo, n_blocks)
 
     @test all(A[1] .== A.blocks[1])
     @test_nowarn A[4] .= 2.5
@@ -112,11 +112,11 @@ end
     y = rand(4, 40, 40)
 
     nhalo = 2
-    nblocks = 4
-    A = BlockHaloArray(x, nhalo, nblocks)
+    n_blocks = 4
+    A = BlockHaloArray(x, nhalo, n_blocks)
 
     halodims = (2, 3)
-    B = BlockHaloArray(y, halodims, nhalo, nblocks)
+    B = BlockHaloArray(y, halodims, nhalo, n_blocks)
 
     @test A[1] == A.blocks[1]
     @test size(A[1]) == (24, 24)
@@ -132,8 +132,8 @@ end
 
     x = rand(40, 40)
     nhalo = 2
-    nblocks = 4
-    A = BlockHaloArray(x, nhalo, nblocks)
+    n_blocks = 4
+    A = BlockHaloArray(x, nhalo, n_blocks)
 
     @test globalindices(A, 1, (3, 3)) == (1, 1)
     @test globalindices(A, 4, (3, 3)) == (21, 21)
@@ -145,12 +145,12 @@ end
     
     dims = (10, 10)
     nhalo = 2
-    nblocks = 2
+    n_blocks = 2
     AA = rand(dims...)
     AA2 = zeros(dims...)
     
     AA_mismatch = rand(12,10)
-    BHA = BlockHaloArray(dims, nhalo, nblocks)
+    BHA = BlockHaloArray(dims, nhalo, n_blocks)
 
     @test_throws ErrorException copy!(AA_mismatch, BHA)
     @test_throws ErrorException copy!(BHA, AA_mismatch)
