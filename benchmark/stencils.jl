@@ -1,13 +1,15 @@
 using .Threads
-using ThreadPools
 using ThreadPinning: pinthreads
 using BlockHaloArrays
+using BlockHaloArrays: @tspawnat
 using LoopVectorization
+using TimerOutputs
 
 abstract type AbstractReconstructionScheme end
 abstract type AbstractMUSCLReconstruction <: AbstractReconstructionScheme end
 abstract type AbstractLimiter end
 
+const to = TimerOutput()
 const global L = 1
 const global R = 2
 const global SMALL_NUM = 1e-30
@@ -378,16 +380,13 @@ function run_stencil_benchmark(recon, nhalo, T, results_file)
         reconstruct_with_blocks!(recon, U, i_edges, j_edges, 1)
     
         max_iter = 10
-        global t_elaps_blocked = 0.0
         for _ in 1:max_iter
-            global t_elaps_blocked += @elapsed begin
+            @timeit to "reconstruct_with_blocks!" begin
                 @sync for thread_id in 1:nblocks
                     @tspawnat thread_id reconstruct_with_blocks!(recon, U, i_edges, j_edges, thread_id)
                 end
             end
         end
-        t_block = t_elaps_blocked / max_iter
-    
     
         # -------------------------------------------------------------------------------------
         # Flat version
@@ -419,17 +418,21 @@ function run_stencil_benchmark(recon, nhalo, T, results_file)
     
         # cache it
         reconstruct_flat!(recon, U_flat, i_edges_flat, j_edges_flat, looplimits)
-    
-        global t_elaps_flat = 0.0
+
         for _ in 1:max_iter
-            global t_elaps_flat += @elapsed begin
+            @timeit to "reconstruct_flat!" begin
                 reconstruct_flat!(recon, U_flat, i_edges_flat, j_edges_flat, looplimits)
             end
         end
-        t_flat = t_elaps_flat / max_iter
-    
-        @show t_flat, t_block
-    
+        
+        show(to)
+        println()
+
+        t_flat = TimerOutputs.time(to["reconstruct_flat!"])
+        t_block = TimerOutputs.time(to["reconstruct_with_blocks!"])
+
+        println("t_flat / t_block = $(t_flat / t_block)")
+
         open(results_file, "a") do io
             println(io, "$(nthreads()),$t_flat,$t_block")
         end

@@ -1,6 +1,6 @@
-import Pkg
+# import Pkg
 
-Pkg.activate("..")
+# Pkg.activate("..")
 
 include("stencils.jl")
 
