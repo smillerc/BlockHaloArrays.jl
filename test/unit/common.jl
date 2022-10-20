@@ -1,7 +1,7 @@
 using .Threads
 using BlockHaloArrays
 using EllipsisNotation
-using ThreadPools: @tspawnat
+using BlockHaloArrays: @tspawnat
 using Test
 # using TestItems, TestItemRunner
 

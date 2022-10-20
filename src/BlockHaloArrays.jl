@@ -15,6 +15,7 @@ export domainview
 export onboundary
 export donorview, haloview
 export blockindex, localindex
+export @tspawnat
 
 abstract type AbstractBlockHaloArray end
 

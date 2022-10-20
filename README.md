@@ -28,7 +28,7 @@ end
 Then the `stencil!()` function is split among threads via:
 ```julia
 @sync for block_id in 1:nthreads()
-    ThreadPools.@tspawnat block_id stencil!(A, block_id)
+    @tspawnat block_id stencil!(A, block_id)
 end
 ```
 
@@ -76,7 +76,7 @@ end
 
 # Let each thread initialize it's own block
 @sync for tid in 1:nblocks(A)
-    ThreadPools.@tspawnat tid init(A1)
+    @tspawnat tid init(A1)
 end
 
 # Let each block sync its halo region with its neighbors
@@ -91,7 +91,7 @@ Anew = flatten(A) # Anew is a 2D Array -- no longer a BlockHaloArray
 
  - `flatten(A)`: Return a flattened `Array` of `A`. This is a copy.
  - `repartition(A, nblocks)`: Repartition the BlockHaloArray into a different block layout 
- - `updatehalo!(A, include_periodic_bc=false)`: Sync all block halo regions. This uses a `@sync` loop with Threadpools.@tspawnat to sync each block.
+ - `updatehalo!(A, include_periodic_bc=false)`: Sync all block halo regions. This uses a `@sync` loop with @tspawnat to sync each block.
  - `updateblockhalo!(A, block_id, include_periodic_bc=false)`: Sync the halo regions of a single block. No `@sync` or `@spawn` calls are used.
  - `domainview(A, blockid)`: Return a view of a the domain (no halo regions) of block `blockid`
  - `onboundary(A, blockid)`: Is the current block `blockid` on a boundary? This is used help apply boundary conditions in a user code.
