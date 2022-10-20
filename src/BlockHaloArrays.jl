@@ -4,7 +4,7 @@ using Base.Threads, Base.Iterators, LinearAlgebra
 import Base.eltype, Base.size, Base.axes, Base.copy!
 import Base.eachindex, Base.first, Base.firstindex, Base.last, Base.lastindex
 
-using ThreadPools, NumaAllocators
+using NumaAllocators
 using EllipsisNotation
 using OffsetArrays
 
@@ -78,6 +78,7 @@ struct MPIBlockHaloArray{T,N,NH,NBL,AA<:Array{T,N}} <: AbstractBlockHaloArray
     _global_halo_recv_buf::Vector{Array{T,NH}}
 end
 
+include("spawn.jl")
 include("partitioning.jl")
 include("halo_exchange.jl")
 include("indexing.jl")
@@ -93,7 +94,7 @@ Construct a BlockHaloArray
  - `nblocks::Integer`: Number of blocks to divide the array into; default is nthreads()
  - `T`:: Array number type; default is Float64
 """
-function BlockHaloArray(dims::NTuple{N,Int}, halodims::NTuple{N2,Int}, nhalo::Integer, nblocks=nthreads(); T=Float64, use_numa=true, tile_dims=nothing) where {N,N2}
+function BlockHaloArray(dims::NTuple{N,Int}, halodims::NTuple{N2,Int}, nhalo::Integer, nblocks=Base.Threads.nthreads(); T=Float64, use_numa=true, tile_dims=nothing) where {N,N2}
 
     alldims = Tuple(1:length(dims))
     non_halo_dims = Tuple([i for (i, v) in enumerate(dims) if !(i in halodims)])
@@ -215,7 +216,7 @@ function BlockHaloArray(dims::NTuple{N,Int}, halodims::NTuple{N2,Int}, nhalo::In
     if !mismatched_blocks
         if use_numa
             @sync for tid in 1:nblocks
-                ThreadPools.@tspawnat tid fill!(A.blocks[tid], 0)
+                @tspawnat tid fill!(A.blocks[tid], 0)
             end
         end
     else
@@ -227,7 +228,7 @@ function BlockHaloArray(dims::NTuple{N,Int}, halodims::NTuple{N2,Int}, nhalo::In
     return A
 end
 
-function BlockHaloArray(A::AbstractArray{T,N}, nhalo::Integer, nblocks=nthreads(); use_numa=true, tile_dims=nothing) where {T,N}
+function BlockHaloArray(A::AbstractArray{T,N}, nhalo::Integer, nblocks=Base.Threads.nthreads(); use_numa=true, tile_dims=nothing) where {T,N}
     halodims = Tuple(1:length(size(A)))
     BlockHaloArray(A, halodims, nhalo, nblocks; use_numa=use_numa, tile_dims=tile_dims)
 end
@@ -235,7 +236,7 @@ end
 """
 Construct a BlockHaloArray from a normal Array
 """
-function BlockHaloArray(A::AbstractArray{T,N}, halodims::NTuple{N2,Integer}, nhalo::Integer, nblocks=nthreads(); use_numa=true, tile_dims=nothing) where {T,N,N2}
+function BlockHaloArray(A::AbstractArray{T,N}, halodims::NTuple{N2,Integer}, nhalo::Integer, nblocks=Base.Threads.nthreads(); use_numa=true, tile_dims=nothing) where {T,N,N2}
     dims = size(A)
     A_blocked = BlockHaloArray(dims, halodims, nhalo, nblocks; T=T, use_numa=use_numa, tile_dims=tile_dims)
     block_ranges = A_blocked.global_blockranges
@@ -249,7 +250,7 @@ function BlockHaloArray(A::AbstractArray{T,N}, halodims::NTuple{N2,Integer}, nha
     return A_blocked
 end
 
-function BlockHaloArray(dims::NTuple{N,Int}, nhalo::Integer, nblocks=nthreads(); T=Float64, use_numa=true, tile_dims=nothing) where {N}
+function BlockHaloArray(dims::NTuple{N,Int}, nhalo::Integer, nblocks=Base.Threads.nthreads(); T=Float64, use_numa=true, tile_dims=nothing) where {N}
 
     halodims = Tuple(1:length(dims))
     BlockHaloArray(dims, halodims, nhalo, nblocks; T=T, use_numa=use_numa, tile_dims=tile_dims)
@@ -310,7 +311,11 @@ end
 
 Get the SubArray view of the domain region of a block in the BlockHaloArray.
 """
-function domainview(A::BlockHaloArray, blockid::Integer;offset=0)
+function domainview(A::BlockHaloArray, blockid::Integer; offset=0)
+
+    if blockid < 1 || blockid > nblocks(A)
+        error("Invalid blockid, must be 1 <= blockid <= $(nblocks(A))")
+    end 
 
     if offset > A.nhalo
         error("offset must be <= nhalo")
@@ -320,21 +325,26 @@ function domainview(A::BlockHaloArray, blockid::Integer;offset=0)
         error("offset must be > 0")
     end
 
-    _, _, lo_dom_start, _ = lo_indices(A.blocks[blockid], A.nhalo)
-    _, hi_dom_end, _, _ = hi_indices(A.blocks[blockid], A.nhalo)
+    function f(i, halodims, offset)
+        if i in halodims
+            return offset
+        else
+            return 0
+        end
+    end
+    offset = ntuple(i -> f(i, A.halodims, offset), length(A.globaldims))
+
+    _, _, lo_dom_start, _ = lo_indices(A.blocks[blockid], A.nhalo, A.halodims)
+    _, hi_dom_end, _, _ = hi_indices(A.blocks[blockid], A.nhalo, A.halodims)
 
     lo_dom_start = lo_dom_start .- offset
     hi_dom_end = hi_dom_end .+ offset
 
     idx_range = UnitRange.(lo_dom_start, hi_dom_end)
-    idx_range_vec = collect(idx_range)
-    for dim in eachindex(idx_range_vec)
-        if !(dim in A.halodims)
-            idx_range_vec[dim] = axes(A.blocks[blockid], dim)
-        end
-    end
-    return @views A.blocks[blockid][.., Tuple(idx_range_vec)...]
+    return @views A.blocks[blockid][.., idx_range...]
 end
+
+# domainview(A::BlockHaloArray, blockid::Integer) = domainview(A, blockid, 0)
 
 """Get the halo region at a particular location, e.g. `:ilo` for block `blockid`"""
 haloview(A::BlockHaloArray, blockid::Integer, location::Symbol) = A._halo_views[blockid][location]
@@ -360,7 +370,7 @@ function copy!(BHA::BlockHaloArray, AA::AbstractArray)
     end
 
     @sync for block_id in 1:nblocks(BHA)
-        ThreadPools.@tspawnat block_id _array_to_block!(BHA, AA, block_id)
+        @tspawnat block_id _array_to_block!(BHA, AA, block_id)
     end
 end
 
@@ -382,7 +392,7 @@ function copy!(AA::AbstractArray, BHA::BlockHaloArray)
     end
 
     @sync for block_id in 1:nblocks(BHA)
-        ThreadPools.@tspawnat block_id _block_to_array!(AA, BHA, block_id)
+        @tspawnat block_id _block_to_array!(AA, BHA, block_id)
     end
 end
 
