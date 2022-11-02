@@ -1,16 +1,54 @@
+const halo_1d_exchange_map = Dict(:ilo => :ihi, :ihi => :ilo)
+
+const halo_2d_exchange_map = Dict(
+    :ilo => :ihi, :ihi => :ilo, :jlo => :jhi, :jhi => :jlo,
+    :ilojlo => :ihijhi, :ihijlo => :ilojhi, :ihijhi => :ilojlo, :ilojhi => :ihijlo
+)
+
+const halo_3d_exchange_map = Dict(
+    :ilo => :ihi,
+    :ihi => :ilo,
+    :jlo => :jhi,
+    :jhi => :jlo,
+    :klo => :khi,
+    :khi => :klo,
+    :ilojlo => :ihijhi,
+    :ihijlo => :ilojhi,
+    :ilojhi => :ihijlo,
+    :ihijhi => :ilojlo,
+    :ilokhi => :ihiklo,
+    :iloklo => :ihikhi,
+    :ihikhi => :iloklo,
+    :ihiklo => :ilokhi,
+    :jhikhi => :jloklo,
+    :jlokhi => :jhiklo,
+    :jhiklo => :jlokhi,
+    :jloklo => :jhikhi,
+    :ilojhikhi => :ihijloklo,
+    :ihijhikhi => :ilojloklo,
+    :ilojlokhi => :ihijhiklo,
+    :ihijlokhi => :ilojhiklo,
+    :ilojhiklo => :ihijlokhi,
+    :ihijhiklo => :ilojlokhi,
+    :ilojloklo => :ihijhikhi,
+    :ihijloklo => :ilojhikhi,
+)
+
+const hmap = (halo_1d_exchange_map, halo_2d_exchange_map, halo_3d_exchange_map)
+
 """1D halo exchange mapping, e.g. donor => reciever block ID"""
-function halo_exhange_map(::NTuple{1,Int})
+function halo_exchange_map(::NTuple{1,Int})
     return Dict(:ilo => :ihi, :ihi => :ilo)
 end
 
 """2D halo exchange mapping, e.g. donor => reciever block ID"""
-function halo_exhange_map(::NTuple{2,Int})
+function halo_exchange_map(::NTuple{2,Int})
     return Dict(:ilo => :ihi, :ihi => :ilo, :jlo => :jhi, :jhi => :jlo,
         :ilojlo => :ihijhi, :ihijlo => :ilojhi, :ihijhi => :ilojlo, :ilojhi => :ihijlo)
 end
 
 """3D halo exchange mapping, e.g. donor => reciever block ID"""
-function halo_exhange_map(::NTuple{3,Int})
+function halo_exchange_map(::NTuple{3,Int})
     return Dict(
         :ilo => :ihi,
         :ihi => :ilo,
@@ -254,9 +292,15 @@ each thread/block copies from it's neighbor block's domain into the current bloc
  - `A`: `BlockHaloArray`
  - `include_periodic_bc`: Update the halo regions that are on periodic boundaries
 """
-function updatehalo!(A::BlockHaloArray, include_periodic_bc=false)
+function updatehalo!(A::BlockHaloArray, include_periodic_bc)
     @sync for tid in eachindex(A.blocks)
         @tspawnat tid updateblockhalo!(A, tid, include_periodic_bc)
+    end
+end
+
+function updatehalo!(A::BlockHaloArray)
+    @sync for tid in eachindex(A.blocks)
+        @tspawnat tid updateblockhalo!(A, tid)
     end
 end
 
@@ -278,12 +322,15 @@ Copy data from the neighbor block into the current block's halo region
  - `block_id::Integer`: Block index
  - `include_periodic_bc`: Update the halo regions that are on periodic boundaries
 """
-function updateblockhalo!(A::BlockHaloArray, current_block_id::Integer, include_periodic_bc=false)
-    exchange_map = halo_exhange_map(A.halodims)
+updateblockhalo!(A, current_block_id) = updateblockhalo!(A, current_block_id, false)
+
+function updateblockhalo!(A::BlockHaloArray{T,N,NH,NBL,AA,SA}, current_block_id::Integer, include_periodic_bc::Bool) where {T,N,NH,NBL,AA,SA}
+    exchange_map = hmap[NH]
 
     for (dom_id, halo_id) in exchange_map
 
         neighbor_block_id = A.neighbor_blocks[current_block_id][halo_id]
+        
         # The convention is that periodic neighbors block ids are < 0 as a hint to the
         # user and code.
         if include_periodic_bc
@@ -295,6 +342,10 @@ function updateblockhalo!(A::BlockHaloArray, current_block_id::Integer, include_
                 A._halo_views[current_block_id][halo_id],
                 A._donor_views[neighbor_block_id][dom_id]
             ) # copy donor -> halo
+
+            # for idx in eachindex(A._halo_views[current_block_id][halo_id])
+            #     A._halo_views[current_block_id][halo_id][idx] = A._donor_views[neighbor_block_id][dom_id][idx]
+            # end
         end
     end
     return nothing
@@ -302,10 +353,10 @@ end
 
 """Get the upper indices for an array `A` given a number of halo entries `nhalo`"""
 function hi_indices(A, nhalo)
-	hmod = 1 .* (nhalo .== 0)
-    hi_halo_end = last.(axes(A))                      
-    hi_halo_start = hi_halo_end .- nhalo .+ 1 .- hmod 
-    hi_domn_end = hi_halo_start .- 1 .+ hmod               
+    hmod = 1 .* (nhalo .== 0)
+    hi_halo_end = last.(axes(A))
+    hi_halo_start = hi_halo_end .- nhalo .+ 1 .- hmod
+    hi_domn_end = hi_halo_start .- 1 .+ hmod
     hi_domn_start = hi_domn_end .- nhalo .+ 1 .- hmod
 
     return (hi_domn_start, hi_domn_end, hi_halo_start, hi_halo_end)
@@ -313,44 +364,44 @@ end
 
 """Get the upper indices for an array `A` given a number of halo entries `nhalo`. This
 version properly accounts for non-halo dimensions"""
-    function hi_indices(A::AbstractArray{T,N}, nhalo, halodims) where {N, T}
+function hi_indices(A::AbstractArray{T,N}, nhalo, halodims) where {N,T}
 
-        function f(i, halodims, nhalo)
-            if i in halodims
-                return nhalo
-            else
-                return 0
-            end
+    function f(i, halodims, nhalo)
+        if i in halodims
+            return nhalo
+        else
+            return 0
         end
-        halo_tuple = ntuple(i -> f(i, halodims, nhalo), Val(N))
-        hi_indices(A, halo_tuple)
     end
+    halo_tuple = ntuple(i -> f(i, halodims, nhalo), Val(N))
+    hi_indices(A, halo_tuple)
+end
 
 """Get the lower indices for an array `A` given a number of halo entries `nhalo`"""
 function lo_indices(A, nhalo)
-	lmod = 1 .* (nhalo .== 0)
-    lo_halo_start = first.(axes(A))            
+    lmod = 1 .* (nhalo .== 0)
+    lo_halo_start = first.(axes(A))
     lo_halo_end = lo_halo_start .+ nhalo .- 1 .+ lmod
-    lo_domn_start = lo_halo_end .+ 1 .- lmod        
-    lo_domn_end = lo_domn_start .+ nhalo .- 1 .+ lmod 
+    lo_domn_start = lo_halo_end .+ 1 .- lmod
+    lo_domn_end = lo_domn_start .+ nhalo .- 1 .+ lmod
 
     return (lo_halo_start, lo_halo_end, lo_domn_start, lo_domn_end)
 end
 
 """Get the lower indices for an array `A` given a number of halo entries `nhalo`. This
 version properly accounts for non-halo dimensions"""
-    function lo_indices(A::AbstractArray{T,N}, nhalo, halodims) where {N, T}
+function lo_indices(A::AbstractArray{T,N}, nhalo, halodims) where {N,T}
 
-        function f(i, halodims, nhalo)
-            if i in halodims
-                return nhalo
-            else
-                return 0
-            end
+    function f(i, halodims, nhalo)
+        if i in halodims
+            return nhalo
+        else
+            return 0
         end
-        halo_tuple = ntuple(i -> f(i, halodims, nhalo), Val(N))
-        lo_indices(A, halo_tuple)
     end
+    halo_tuple = ntuple(i -> f(i, halodims, nhalo), Val(N))
+    lo_indices(A, halo_tuple)
+end
 
 """Get the neighbor block id's for a 1D decomposition"""
 function get_neighbor_blocks_no_periodic(tile_dims::NTuple{1,Integer})

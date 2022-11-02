@@ -43,6 +43,14 @@
     include_periodic_bc = true
     updatehalo!(A, include_periodic_bc)
 
+    @show @allocated updatehalo!(A, include_periodic_bc)
+    @show @allocated updatehalo!(A, true)
+    @show @allocated updatehalo!(A, false)
+    @show @allocated updatehalo!(A)
+
+    @show @allocated updateblockhalo!(A, 1, true)
+    @show @allocated updateblockhalo!(A, 1, false)
+
     for blockid in 1:n_blocks
         dv = domainview(A, blockid)
         @test all(dv .== blockid)
