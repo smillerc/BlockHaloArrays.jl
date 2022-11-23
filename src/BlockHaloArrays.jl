@@ -197,7 +197,7 @@ function BlockHaloArray(dims::NTuple{N,Int}, halodims::NTuple{N2,Int}, nhalo::In
     _donor_views = gen_donor_views(blocks, nhalo, halodims)
     DonorViewTypes = typeof(first(_donor_views)[:ilo])
     donor_views = Vector{Dict{Symbol, DonorViewTypes}}(undef, nblocks)
-    
+
     A = BlockHaloArray(blocks, tile_dims, halodims, vec(block_ranges), nhalo,
         loop_limits, dims, neighbors,
         cummulative_blocksize_per_dim, LI,
@@ -312,7 +312,7 @@ end
 
 Get the SubArray view of the domain region of a block in the BlockHaloArray.
 """
-function domainview(A::BlockHaloArray, blockid::Integer; offset=0)
+function domainview(A::BlockHaloArray, blockid::Integer, offset)
 
     if blockid < 1 || blockid > nblocks(A)
         error("Invalid blockid, must be 1 <= blockid <= $(nblocks(A))")
@@ -333,19 +333,19 @@ function domainview(A::BlockHaloArray, blockid::Integer; offset=0)
             return 0
         end
     end
-    offset = ntuple(i -> f(i, A.halodims, offset), length(A.globaldims))
+    idx_offset = ntuple(i -> f(i, A.halodims, offset), length(A.globaldims))
 
     _, _, lo_dom_start, _ = lo_indices(A.blocks[blockid], A.nhalo, A.halodims)
     _, hi_dom_end, _, _ = hi_indices(A.blocks[blockid], A.nhalo, A.halodims)
 
-    lo_dom_start = lo_dom_start .- offset
-    hi_dom_end = hi_dom_end .+ offset
+    lo_dom_start = lo_dom_start .- idx_offset
+    hi_dom_end = hi_dom_end .+ idx_offset
 
     idx_range = UnitRange.(lo_dom_start, hi_dom_end)
     return @views A.blocks[blockid][.., idx_range...]
 end
 
-# domainview(A::BlockHaloArray, blockid::Integer) = domainview(A, blockid, 0)
+domainview(A::BlockHaloArray, blockid::Integer) = domainview(A, blockid, 0)
 
 """Get the halo region at a particular location, e.g. `:ilo` for block `blockid`"""
 haloview(A::BlockHaloArray, blockid::Integer, location::Symbol) = A._halo_views[blockid][location]
