@@ -17,14 +17,14 @@ end
     n_blocks = 4
     dims = (40,40)
     A = BlockHaloArray(dims, nhalo, n_blocks)
-    
+
     blockid = 1
     @test size(domainview(A, blockid)) == (20, 20)
-    @test size(domainview(A, blockid; offset=1)) == (22, 22)
-    @test size(domainview(A, blockid; offset=2)) == (24, 24)
-    @test size(domainview(A, blockid; offset=3)) == (26, 26)
-    @test_throws ErrorException domainview(A, blockid; offset=4)
-    @test_throws ErrorException domainview(A, blockid; offset=-1)
+    @test size(domainview(A, blockid, 1)) == (22, 22)
+    @test size(domainview(A, blockid, 2)) == (24, 24)
+    @test size(domainview(A, blockid, 3)) == (26, 26)
+    @test_throws ErrorException domainview(A, blockid, 4)
+    @test_throws ErrorException domainview(A, blockid, -1)
 end
 
 @testitem "nblocks" begin
@@ -142,13 +142,14 @@ end
 end
 
 @testitem "copy!" begin
-    
+    include("common.jl")
+
     dims = (10, 10)
     nhalo = 2
     n_blocks = 2
     AA = rand(dims...)
     AA2 = zeros(dims...)
-    
+
     AA_mismatch = rand(12,10)
     BHA = BlockHaloArray(dims, nhalo, n_blocks)
 
@@ -157,7 +158,8 @@ end
 
     copy!(BHA, AA) # copy from the abstract array to the block halo array
     @test AA == flatten(BHA)
-    
+
     copy!(AA2, BHA) # copy from the abstract array to the block halo array
     @test AA2 == flatten(BHA)
+
 end

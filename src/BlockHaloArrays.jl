@@ -316,7 +316,7 @@ function domainview(A::BlockHaloArray, blockid::Integer, offset)
 
     if blockid < 1 || blockid > nblocks(A)
         error("Invalid blockid, must be 1 <= blockid <= $(nblocks(A))")
-    end 
+    end
 
     if offset > A.nhalo
         error("offset must be <= nhalo")
