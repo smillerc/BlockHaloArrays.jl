@@ -34,6 +34,6 @@ end
 
 function check_threads(tid, n_threads=Base.Threads.nthreads()::Int)
     if tid < 1 || tid > n_threads
-        throw(AssertionError("@tspawnat thread assignment ($tid) must be between 1 and $nthreads)"))
+        throw(AssertionError("@tspawnat invalid thread id (must be between 1 and nthreads)"))
     end
 end
