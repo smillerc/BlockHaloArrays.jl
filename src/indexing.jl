@@ -1,6 +1,6 @@
 
 """
-Get the cartesian block index within the block layout. 
+Get the cartesian block index within the block layout.
 For example, in a (2,3) block tiling scheme, based on a given
 global index `global_i`, and the dimension-specific cummulative `block_sizes`,
 find the 2D index. The `dim` argument is used to ignore dimensions
@@ -34,7 +34,7 @@ end
 
 """
 Get the block-local index based on the given global index. The `block_i` value
-is the dimension-specific block cartesian index. Dimensions not included in the 
+is the dimension-specific block cartesian index. Dimensions not included in the
 `halodims` are a special case where the global index is the same as the local index.
 """
 function get_local_idx(global_idx, block_i, nhalo, block_sizes, dim, halodims)
@@ -50,12 +50,12 @@ function get_local_idx(global_idx, block_i, nhalo, block_sizes, dim, halodims)
 end
 
 """
-Overload the getindex, or [], method for a BlockHaloArray. This is a 'flat' iterator of sorts, 
+Overload the getindex, or [], method for a BlockHaloArray. This is a 'flat' iterator of sorts,
 since the actual data within the BlockHaloArray is a series of separate blocks. Iterating through
 the array in this manner will be slower due to the additional arithmetic need to find the global
 to local index conversion for each block.
 """
-function Base.getindex(A::BlockHaloArray{T,N,NH,NBL,AA}, global_idx::NTuple{N,Int}) where {T,N,NH,NBL,AA}
+function Base.getindex(A::BlockHaloArray{T,N,NH,NBL,AA}, global_idx::Vararg{Int, N2}) where {T,N,N2,NH,NBL,AA}
     block_idx = ntuple(i ->
             get_block_idx(global_idx[A.halodims[i]],
                 A._cummulative_blocksize_per_dim,
@@ -76,8 +76,15 @@ function Base.getindex(A::BlockHaloArray{T,N,NH,NBL,AA}, global_idx::NTuple{N,In
     return A.blocks[block_id][local_idx...]
 end
 
+function Base.getindex(A::BlockHaloArray, block_idx::Int)
+    if block_idx > nblocks(A)
+        @error("Attempting to access a block out-of-bounds")
+    end
+    return A.blocks[block_idx]
+end
+
 """
-Get the scalar block index give a global index tuple 
+Get the scalar block index give a global index tuple
 """
 function blockindex(A::BlockHaloArray{T,N,NH,NBL,AA}, global_idx::NTuple{N,Int}) where {T,N,NH,NBL,AA}
     block_idx = ntuple(i ->
@@ -91,7 +98,7 @@ function blockindex(A::BlockHaloArray{T,N,NH,NBL,AA}, global_idx::NTuple{N,Int})
 end
 
 """
-Get the block-local indices give a global index tuple 
+Get the block-local indices give a global index tuple
 """
 function localindex(A::BlockHaloArray{T,N,NH,NBL,AA}, global_idx::NTuple{N,Int}) where {T,N,NH,NBL,AA}
 
@@ -108,17 +115,13 @@ function localindex(A::BlockHaloArray{T,N,NH,NBL,AA}, global_idx::NTuple{N,Int})
     return local_idx
 end
 
-function Base.getindex(A::BlockHaloArray, block_idx::Int)
-    return A.blocks[block_idx]
-end
-
 """
-Overload the setindex, or A[I] = ... , method for a BlockHaloArray. This is a 'flat' iterator of sorts, 
+Overload the setindex, or A[I] = ... , method for a BlockHaloArray. This is a 'flat' iterator of sorts,
 since the actual data within the BlockHaloArray is a series of separate blocks. Iterating through
 the array in this manner will be slower due to the additional arithmetic needed to find the global
 to local index conversion for each block.
 """
-function Base.setindex!(A::BlockHaloArray, v, global_idx::NTuple{N,Int}) where {N}
+function Base.setindex!(A::BlockHaloArray, v, global_idx::Vararg{Int, N}) where {N}
     block_idx = ntuple(i ->
             get_block_idx(global_idx[A.halodims[i]],
                 A._cummulative_blocksize_per_dim,
@@ -136,7 +139,7 @@ function Base.setindex!(A::BlockHaloArray, v, global_idx::NTuple{N,Int}) where {
         length(A.globaldims))
 
     block_id::Int = A._linear_indices[block_idx...]
-    
+
     setindex!(A.blocks[block_id], v, local_idx...)
 end
 
@@ -159,4 +162,3 @@ function globalindices(A::BlockHaloArray, block_index::Integer, local_indices)
     block_range = @views A.global_blockranges[block_index]
     return get_idx.(local_indices, block_range, A.nhalo)
 end
-
