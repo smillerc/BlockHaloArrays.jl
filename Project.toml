@@ -16,10 +16,9 @@ OffsetArrays = "1"
 julia = "1.6"
 
 [extras]
-JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
 LIKWID = "bf22376a-e803-4184-b2ed-56326e3bff83"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 TestItemRunner = "f8b46487-2199-4994-9208-9a1283c18c0a"
 
 [targets]
-test = ["Test", "TestItemRunner", "LIKWID", "JET"]
+test = ["Test", "TestItemRunner", "LIKWID"]
