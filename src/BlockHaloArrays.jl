@@ -33,13 +33,13 @@ scaling than multi-threaded loops
  - `globaldims::NTuple{D,Int}`: Dimensions of the array if it were a simple `Array{T,D}`, e.g. `(20,20)`
 
 """
-struct BlockHaloArray{T,N,NH,NBL,AA<:Array{T,N},SA} <: AbstractBlockHaloArray
-    blocks::Vector{AA}
+struct BlockHaloArray{NB,T,N,NH,NBL,AA<:Array{T,N},SA,NL} <: AbstractBlockHaloArray
+    blocks::NTuple{NB,AA}
     block_layout::NTuple{NBL,Int}
     halodims::NTuple{NH,Int}
     global_blockranges::Vector{NTuple{N,UnitRange{Int}}}
     nhalo::Int
-    loop_limits::Vector{Vector{Int}}
+    loop_limits::NTuple{NB, NTuple{NL, Int}}
     globaldims::NTuple{N,Int}
     neighbor_blocks::Vector{Dict{Symbol,Int}}
 
@@ -72,7 +72,7 @@ struct MPIBlockHaloArray{T,N,NH,NBL,AA<:Array{T,N}} <: AbstractBlockHaloArray
     halodims::NTuple{NH,Int}
     global_blockranges::Vector{NTuple{N,UnitRange{Int}}}
     nhalo::Int
-    loop_limits::Vector{Vector{Int}}
+    loop_limits::NTuple{NBL, NTuple{4, Int}}
     globaldims::NTuple{N,Int}
     neighbor_blocks::Vector{Dict{Symbol,Int}}
     _global_halo_send_buf::Vector{Array{T,NH}}
@@ -186,6 +186,7 @@ function BlockHaloArray(dims::NTuple{N,Int}, halodims::NTuple{N2,Int}, nhalo::In
                           for ax in axes(blocks[i])] |> flatten |> collect
     end
 
+    loop_lims = Tuple(Tuple.(loop_limits))
     neighbors = get_neighbor_blocks(tile_dims)
 
     # Pass undef'ed vector to the constructor, since the views
@@ -198,8 +199,8 @@ function BlockHaloArray(dims::NTuple{N,Int}, halodims::NTuple{N2,Int}, nhalo::In
     DonorViewTypes = typeof(first(_donor_views)[:ilo])
     donor_views = Vector{Dict{Symbol, DonorViewTypes}}(undef, nblocks)
 
-    A = BlockHaloArray(blocks, tile_dims, halodims, vec(block_ranges), nhalo,
-        loop_limits, dims, neighbors,
+    A = BlockHaloArray(tuple(blocks...), tile_dims, halodims, vec(block_ranges), nhalo,
+        loop_lims, dims, neighbors,
         cummulative_blocksize_per_dim, LI,
         donor_views, halo_views)
 

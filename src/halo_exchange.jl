@@ -324,7 +324,7 @@ Copy data from the neighbor block into the current block's halo region
 """
 updateblockhalo!(A, current_block_id) = updateblockhalo!(A, current_block_id, false)
 
-function updateblockhalo!(A::BlockHaloArray{T,N,NH,NBL,AA,SA}, current_block_id::Integer, include_periodic_bc::Bool) where {T,N,NH,NBL,AA,SA}
+function updateblockhalo!(A::BlockHaloArray{NB,T,N,NH,NBL,AA,SA,Y}, current_block_id::Integer, include_periodic_bc::Bool) where {NB,T,N,NH,NBL,AA,SA,Y}
     exchange_map = hmap[NH]
 
     for (dom_id, halo_id) in exchange_map

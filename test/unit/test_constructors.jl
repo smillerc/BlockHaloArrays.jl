@@ -70,6 +70,9 @@ end
     nhalo = 2
     nblocks = 4
     A = BlockHaloArray(dims, nhalo, nblocks)
+    @show A.global_blockranges
+    @show A.block_layout
+    @show typeof(A)
 end
 
 @testitem "3D Array, 1D halo dims" begin

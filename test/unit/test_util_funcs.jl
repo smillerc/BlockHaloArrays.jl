@@ -138,7 +138,7 @@ end
     @test globalindices(A, 1, (3, 3)) == (1, 1)
     @test globalindices(A, 4, (3, 3)) == (21, 21)
 
-    @show globalindices(A, 4, (22, 22))
+    # @show globalindices(A, 4, (22, 22))
 end
 
 @testitem "copy!" begin
