@@ -16,6 +16,7 @@ export onboundary
 export donorview, haloview
 export blockindex, localindex
 export @tspawnat
+export copy_domain!, copy_halo!
 
 abstract type AbstractBlockHaloArray end
 
@@ -374,6 +375,57 @@ function copy!(BHA::BlockHaloArray, AA::AbstractArray)
     @sync for block_id in 1:nblocks(BHA)
         @tspawnat block_id _array_to_block!(BHA, AA, block_id)
     end
+end
+
+function copy!(BHA1::BlockHaloArray, BHA2::BlockHaloArray)
+
+    if eltype(BHA1) != eltype(BHA2)
+        @warn "Mismatched AbstractArray and BlockHaloArray eltypes"
+    end
+
+    if size(BHA1) != size(BHA2)
+        error("Mismatched array dimensions: BlockHaloArray.globaldims $(BHA.globaldims) != size(AbstractArray) $(size(AA))")
+    end
+
+    @sync for block_id in 1:nblocks(BHA1)
+        @tspawnat block_id begin
+            copy!(BHA1[block_id], BHA2[block_id])
+        end
+    end
+end
+
+function copy_domain!(BHA1::BlockHaloArray, BHA2::BlockHaloArray)
+
+    if eltype(BHA1) != eltype(BHA2)
+        @warn "Mismatched AbstractArray and BlockHaloArray eltypes"
+    end
+
+    if size(BHA1) != size(BHA2)
+        error("Mismatched array dimensions: BlockHaloArray.globaldims $(BHA.globaldims) != size(AbstractArray) $(size(AA))")
+    end
+
+    @sync for block_id in 1:nblocks(BHA1)
+        @tspawnat block_id begin
+            B1 = domainview(BHA1, block_id)
+            B2 = domainview(BHA2, block_id)
+            copy!(B1, B2)
+        end
+    end
+end
+
+function copy_halo!(dst::BlockHaloArray, src::BlockHaloArray)
+    if size(src) != size(dst)
+        error("Mismatched array dimensions")
+    end
+
+    dst_hv = dst._halo_views
+    src_hv = src._halo_views
+    for blk in 1:nblocks(dst)
+        for loc in keys(src_hv[blk])
+            copy!(dst_hv[blk][loc], src_hv[blk][loc])
+        end
+    end
+
 end
 
 function _array_to_block!(BHA::BlockHaloArray, AA::AbstractArray, block_id::Int)
